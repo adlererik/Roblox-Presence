@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.local/
+credentials/
+config.local.json
+*.sqlite*
+*.lock
+dist/
+.coverage
+.pytest_cache/

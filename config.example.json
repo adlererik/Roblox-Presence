@@ -1,0 +1,17 @@
+{
+  "observer_user_id": 1,
+  "target_user_id": 2,
+  "cookie_file": "credential:roblox_cookie",
+  "state_dir": "/var/lib/roblox-presence",
+  "push": {
+    "provider": "ntfy",
+    "base_url": "https://ntfy.sh",
+    "topic_file": "credential:ntfy_topic"
+  },
+  "poll_seconds": 15,
+  "offline_confirmations": 2,
+  "timeout_seconds": 8,
+  "alert_ttl_seconds": 300,
+  "outage_alert_seconds": 300,
+  "notify_on_startup": true
+}

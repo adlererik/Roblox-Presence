@@ -1,0 +1,22 @@
+#!/sbin/openrc-run
+
+name="Roblox Presence Monitor"
+description="Notify when a configured Roblox connection becomes online"
+supervisor="supervise-daemon"
+command="/usr/bin/python3"
+command_args="-B -m roblox_presence --config /etc/roblox-presence/config.json run"
+command_user="roblox-presence:roblox-presence"
+directory="/opt/roblox-presence/current"
+pidfile="/run/roblox-presence.pid"
+respawn_delay=15
+respawn_max=0
+retry="TERM/45/KILL/5"
+umask=0077
+output_log="/var/log/roblox-presence/monitor.log"
+error_log="/var/log/roblox-presence/error.log"
+required_dirs="/opt/roblox-presence/current /var/lib/roblox-presence /var/log/roblox-presence"
+required_files="/etc/roblox-presence/config.json /etc/roblox-presence/roblox_cookie /etc/roblox-presence/ntfy_topic"
+
+depend() {
+    after net
+}
