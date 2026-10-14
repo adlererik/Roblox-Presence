@@ -1,6 +1,6 @@
 # Roblox Presence Monitor
 
-Receive a phone notification when a Roblox connection comes online, then open Roblox yourself to play together. The monitor runs on an always-on Linux computer. Your workstation is needed for setup; it can be switched off afterward. Your phone receives notifications.
+Receive a phone notification when a Roblox connection comes online, then open Roblox yourself to play together. The monitor runs on an always-on Linux computer. Your phone receives notifications. A workstation does not need to stay on for monitoring.
 
 This is an independent project, without Roblox endorsement or approval. It needs your own Roblox account's session credential. It does not need the other person's password or session.
 
@@ -26,11 +26,23 @@ You need:
 - Permission to administer that computer. Continuous service installation below uses **systemd 250 or newer**. Debian and Ubuntu commonly use systemd; other distributions may also use it. [OpenRC and other supervisor options](docs/DEPLOYMENT.md) are available separately.
 - Your own Roblox account and a consenting connection whose online status your account can see.
 - An Android phone with the free **ntfy** notification app. The free hosted service needs no paid plan or account for this walkthrough; [usage limits apply](https://docs.ntfy.sh/terms/).
-- A desktop web browser on your workstation for the one-time Roblox session setup. No browser is installed on the server by these instructions.
+- A desktop web browser for this version's session-cookie setup, initially and when a replacement session is needed. This is a current setup limitation, not a requirement to keep a workstation running. No browser is installed on the server by these instructions.
 
 The initial account session and real phone delivery have to be tested for each installation. Automated tests cannot prove either one works.
 
 ## Beginner walkthrough
+
+### If you mainly use a phone and someone is handling the server
+
+The terminal instructions below are for the person administering the server. You do not have to type them yourself if a trusted administrator or assistant already has authorized server access. They can prepare configuration, run checks, and install/start only this monitor after the live acceptance checks pass.
+
+Your phone tasks are to install ntfy, add the exact private topic prepared for your installation, allow background delivery, and confirm that test notifications arrive. The project name is not the topic: do not invent a topic name such as `Roblox-Presence`. The phone and server must use the same randomly generated string. Obtain it from the protected setup file or the operator's `subscription` command; keep it out of public documentation and screenshots.
+
+On ntfy's **Subscribe to topic** screen, paste that exact string into **Topic name**, leave **Use another server** unchecked for the default `ntfy.sh` setup, check **Instant delivery in doze mode**, and tap **SUBSCRIBE**. If the main screen warns about battery optimization, tap **FIX NOW** and allow the background/battery exemption requested by Android. The [official phone guide](https://docs.ntfy.sh/subscribe/phone/) explains delivery options.
+
+The authenticated monitor still needs your own Roblox session. Installing ntfy does not connect your Roblox account. The current secure prompt is described in step 5; ordinary mobile browsers do not provide the desktop developer-tools workflow described there. A server administrator can handle deployment but cannot authorize Roblox as you or obtain your account session without your participation. Do not send credentials through chat as a shortcut. A successful public API reply saying `offline` is not evidence that monitoring without an account login will work; compare during a known online session before choosing another authentication approach.
+
+### If you are administering the server yourself
 
 Follow the steps in order. Each step says which device to use. A **terminal** is an app where you type commands and press Enter. On a Linux workstation, search your application menu for “Terminal.” In many terminals, **Ctrl+Shift+V** pastes. Copy one command at a time. Text shown as an expected result is not a command.
 
@@ -40,9 +52,9 @@ Words in CAPITALS such as `SERVER_ADDRESS` are placeholders: replace them with y
 
 Install [ntfy from Google Play](https://play.google.com/store/apps/details?id=io.heckel.ntfy). Open it and allow notifications when Android asks. You do not need a paid subscription. Keep the app available; you will add the notification topic in step 6.
 
-### 2. Connect to the always-on computer — on your workstation
+### 2. Connect to the always-on computer — using your existing SSH access
 
-If you already have a working SSH connection, use that same connection. SSH lets your workstation type commands on the server. For a typical setup, replace `SERVER_USERNAME` and `SERVER_ADDRESS` in:
+If you already have a working SSH connection from a workstation or phone terminal app, use that same connection. SSH lets that device type commands on the server. For a typical setup, replace `SERVER_USERNAME` and `SERVER_ADDRESS` in:
 
 ```bash
 ssh SERVER_USERNAME@SERVER_ADDRESS
