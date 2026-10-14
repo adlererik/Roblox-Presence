@@ -26,7 +26,8 @@ class Push:
 
     def send(self, event):
         title, body = message(event)
-        click = f"https://www.roblox.com/users/{self.config.target_user_id}/profile"
+        # Do not disclose the monitored account's identifier to a push provider.
+        click = "https://www.roblox.com/home"
         if self.config.push_provider == "ntfy":
             topic = secret(self.config.push_topic_file)
             # Validate immediately before use as secrets can be rotated.
@@ -50,7 +51,7 @@ class Push:
                        "user": secret(self.config.push_user_file), "title": title,
                        "message": body, "priority": "1"}
             if event["kind"] == "online":
-                payload.update(url=click, url_title="Open Roblox profile")
+                payload.update(url=click, url_title="Open Roblox")
             data = require_success(self.http.request("POST", "https://api.pushover.net/1/messages.json",
                                                      headers={"Content-Type": "application/x-www-form-urlencoded"},
                                                      body=urlencode(payload).encode()), "pushover")

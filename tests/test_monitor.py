@@ -307,6 +307,23 @@ class PushTests(Fixture):
         self.assertEqual(payload["priority"], 4)
         self.assertNotIn("TEST_OBSERVER_SESSION", str(http.calls))
         self.assertEqual(set(payload), {"topic", "title", "message", "priority", "tags", "click"})
+        self.assertEqual(payload["click"], "https://www.roblox.com/home")
+        self.assertNotIn("/users/", str(http.calls))
+
+    def test_pushover_does_not_disclose_monitored_account_identifier(self):
+        from urllib.parse import parse_qs
+        token, user = self.root / "push_token", self.root / "push_user"
+        for path, value in ((token, "TEST_PUSH_TOKEN"), (user, "TEST_PUSH_USER")):
+            path.write_text(value)
+            path.chmod(0o600)
+        config = dataclasses.replace(self.config, push_provider="pushover",
+                                     push_token_file=str(token), push_user_file=str(user))
+        http = FakeHttp([response({"status": 1, "request": "accepted"})])
+        Push(config, http).send({"kind": "online", "created_at": 1000})
+        payload = parse_qs(http.calls[0][2]["body"].decode())
+        self.assertEqual(payload["url"], ["https://www.roblox.com/home"])
+        self.assertNotIn("/users/", str(http.calls))
+        self.assertNotIn("TEST_OBSERVER_SESSION", str(http.calls))
 
     def test_ntfy_token_sent_only_to_push_host(self):
         token = self.root / "token"
