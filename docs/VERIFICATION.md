@@ -13,6 +13,7 @@ Coverage includes:
 - Credential permissions, symlink/FIFO rejection, bounded network responses, safe logs, push payloads without identifying profile links, and graceful worker shutdown.
 - Native POSIX credential ACLs for dynamic service identities, including rejection of other users, group/world grants, malformed ACLs, and ordinary group-readable files.
 - Isolated systemd installer behavior, service configuration through protected credentials, dry-run/collision protection, direct file-based configuration, supervisor-independent preflight, and release exclusion/reproducibility checks.
+- Release Git exclusion rules, refusal of source symlinks, and an untracked private canary that must never enter the archive.
 
 The core suite has been exercised on Linux with Python 3.13 and 3.14. The systemd unit has passed native unit verification with systemd 257. The OpenRC example is syntax checked; real OpenRC activation is not included in those results. These checks do not certify every distribution, service-manager version, or device.
 

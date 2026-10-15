@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def package():
-    files = [ROOT / "README.md", ROOT / "config.example.json", ROOT / "config.direct.example.json"]
+    files = [ROOT / "README.md", ROOT / ".gitignore", ROOT / "config.example.json", ROOT / "config.direct.example.json"]
     for folder, pattern in (("roblox_presence", "*.py"), ("tests", "*.py"),
                             ("deploy", "*.py"), ("deploy", "*.service"), ("docs", "*.md"),
                             ("tools", "*.py"), ("tools", "*.cjs"), ("tests", "*.cjs"),
@@ -24,6 +24,8 @@ def package():
         with gzip.GzipFile(filename="", fileobj=output_stream, mode="wb", mtime=0) as compressed:
             with tarfile.open(fileobj=compressed, mode="w", format=tarfile.PAX_FORMAT) as tar:
                 for path in files:
+                    if path.is_symlink() or not path.is_file():
+                        raise ValueError("Release inputs must be regular source files, not symlinks")
                     info = tar.gettarinfo(str(path), arcname="roblox-presence/" + str(path.relative_to(ROOT)))
                     info.uid = info.gid = 0
                     info.uname = info.gname = ""

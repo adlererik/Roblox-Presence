@@ -9,3 +9,11 @@ config.local.json
 dist/
 .coverage
 .pytest_cache/
+.env
+.env.*
+*.log
+*.har
+*.pem
+*.key
+*.bundle
+*.pcap*

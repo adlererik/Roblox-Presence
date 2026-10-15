@@ -4,6 +4,10 @@ Receive a phone notification when a Roblox connection comes online, then open Ro
 
 This is an independent project, without Roblox endorsement or approval. It needs your own Roblox account's session credential. It does not need the other person's password or session.
 
+**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.1.0](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.1.0) is an initial preview; complete the real online-status and phone-delivery checks before relying on it.
+
+The settings are your own: choose the two accounts, your Linux server, and your notification client. No particular relationship, hardware brand, hostname, or Linux distribution is required. The automated service installer uses systemd; [OpenRC and other supervisors](docs/DEPLOYMENT.md) have separate instructions.
+
 ## Can this get my Roblox account banned?
 
 **No one can promise zero risk.** The monitor uses a [documented presence API](https://create.roblox.com/docs/cloud/reference/domains/presence), respects rate-limit responses, and only reads status. It does not launch games, automate gameplay, send Roblox messages, or bypass privacy settings. Those design choices do not make it Roblox-approved.
@@ -29,7 +33,7 @@ You need:
 - An always-on Linux computer with internet access and Python **3.11 or newer**, including `ssl`, `sqlite3`, and `fcntl`. No extra Python packages are used.
 - Permission to administer that computer. Continuous service installation below uses **systemd 250 or newer**. Debian and Ubuntu commonly use systemd; other distributions may also use it. [OpenRC and other supervisor options](docs/DEPLOYMENT.md) are available separately.
 - Your own Roblox account and a consenting connection whose online status your account can see.
-- An Android phone with the free **ntfy** notification app. The free hosted service needs no paid plan or account for this walkthrough; [usage limits apply](https://docs.ntfy.sh/terms/).
+- A phone with **ntfy**, available for [Android and iOS](https://docs.ntfy.sh/subscribe/phone/). The walkthrough's notification-menu instructions cover Android; follow ntfy's own instructions and test delivery on other clients. The free hosted service needs no paid plan or account for this walkthrough; [usage limits apply](https://docs.ntfy.sh/terms/).
 - A way to authorize your own session: the optional phone Quick Sign In flow below, or a desktop browser for manual session-cookie setup. Neither method requires a workstation to stay on for monitoring. Account security events may require a new authorization later.
 
 The initial account session and real phone delivery have to be tested for each installation. Automated tests cannot prove either one works.
@@ -91,14 +95,14 @@ Use a new directory dedicated to this project. For a fresh setup:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.1.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py
 python3 -m unittest discover -v
 ```
 
-If a copy has already been prepared for you on the server, `cd` to that copy instead of cloning another one. A private repository requires GitHub access; use your established GitHub authentication or transfer a downloaded source archive over SSH. Your GitHub password is not a Roblox credential.
+This selects the reviewed release. Git may mention a "detached HEAD" because a release tag was selected; you can still install and run the program normally. If a copy has already been prepared for you on the server, `cd` to that copy instead of cloning another one. The public repository does not require a GitHub login to download. Never use a Roblox credential in a GitHub prompt.
 
 **Checkpoint:** Python reports at least 3.11, preflight reports `"supported": true`, and tests finish with `OK`. For the service instructions in step 9, preflight must also report `"systemd_install_supported": true`. Keep preflight output private because it contains host and service inventory.
 

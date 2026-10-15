@@ -22,6 +22,9 @@ spec.loader.exec_module(installer)
 preflight_spec = importlib.util.spec_from_file_location("presence_preflight", ROOT / "deploy/preflight.py")
 preflight = importlib.util.module_from_spec(preflight_spec)
 preflight_spec.loader.exec_module(preflight)
+package_spec = importlib.util.spec_from_file_location("presence_package", ROOT / "tools/package.py")
+packager = importlib.util.module_from_spec(package_spec)
+package_spec.loader.exec_module(packager)
 
 
 class DeploymentTests(unittest.TestCase):
@@ -189,6 +192,8 @@ class DeploymentTests(unittest.TestCase):
             self.assertIn("roblox-presence/deploy/install.py", names)
             self.assertIn("roblox-presence/deploy/roblox-presence.openrc", names)
             self.assertIn("roblox-presence/config.direct.example.json", names)
+            self.assertIn("roblox-presence/.gitignore", names)
+            self.assertIn("roblox-presence/docs/GETTING_STARTED.md", names)
             for name in names:
                 self.assertFalse(any(part in name.split("/") for part in (".local", ".git", "__pycache__", "credentials")))
                 self.assertFalse(name.endswith("sqlite3"))
@@ -197,7 +202,34 @@ class DeploymentTests(unittest.TestCase):
             if cookie.exists():
                 value = cookie.read_bytes().strip()
                 for item in tar.getmembers():
-                    self.assertNotIn(value, tar.extractfile(item).read())
+                    self.assertFalse(value in tar.extractfile(item).read(),
+                                     "A protected credential was included in the release")
+
+    def test_untracked_private_canary_does_not_enter_release(self):
+        private = ROOT / ".local"
+        existed = private.exists()
+        private.mkdir(mode=0o700, exist_ok=True)
+        try:
+            with tempfile.TemporaryDirectory(dir=private, prefix="package-private-") as folder:
+                canary = b"PACKAGE_PRIVATE_CANARY_NOT_A_REAL_CREDENTIAL_" + Path(folder).name.encode()
+                (Path(folder) / "private-session").write_bytes(canary)
+                subprocess.run([sys.executable, "tools/package.py"], cwd=ROOT, capture_output=True, check=True)
+                with tarfile.open(ROOT / "dist/roblox-presence-0.1.0.tar.gz") as archive:
+                    for member in archive:
+                        self.assertNotIn(".local", Path(member.name).parts)
+                        self.assertFalse(canary in archive.extractfile(member).read(),
+                                         "An ignored private canary entered the release")
+        finally:
+            if not existed:
+                private.rmdir()
+
+    def test_packaging_refuses_source_symlinks_to_private_files(self):
+        for name in ("README.md", ".gitignore", "config.example.json", "config.direct.example.json"):
+            (self.base / name).write_text("generic source fixture")
+        (self.base / "docs").mkdir()
+        (self.base / "docs/linked.md").symlink_to(self.cookie)
+        with patch.object(packager, "ROOT", self.base), self.assertRaisesRegex(ValueError, "symlinks"):
+            packager.package()
 
 
 if __name__ == "__main__":
