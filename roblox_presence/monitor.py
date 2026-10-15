@@ -102,6 +102,13 @@ class Monitor:
             self.stop.set()
 
     def run(self):
+        from . import dashboard
+        web = None
+        try:
+            web = dashboard.start(self.config)
+        except Exception:
+            # A dashboard problem must never stop polling or push delivery.
+            LOG.error("dashboard_start_failed")
         worker = threading.Thread(target=self.delivery_loop, name="push-delivery", daemon=True)
         worker.start()
         systemd_notify("READY=1\nSTATUS=Presence monitor running")
@@ -116,6 +123,7 @@ class Monitor:
                     systemd_notify("WATCHDOG=1")
                     self.stop.wait(min(10, max(0, deadline - self.monotonic())))
         finally:
+            dashboard.stop(web)
             self.stop.set()
             self.wake.set()
             worker.join(timeout=self.config.timeout_seconds + 5)

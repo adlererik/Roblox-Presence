@@ -62,7 +62,7 @@ class Http:
         if not url.startswith("https://"):
             raise ServiceError("https_required")
         req = Request(url, data=body, method=method,
-                      headers={"User-Agent": "Roblox-Presence/0.2.1", "Accept": "application/json",
+                      headers={"User-Agent": "Roblox-Presence/0.3.0", "Accept": "application/json",
                                **(headers or {})})
         try:
             try:

@@ -310,4 +310,4 @@ class ReportTests(unittest.TestCase):
                 self.assertIn(command, result.stdout)
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(main(["help"]), 0)
-        self.assertIn("Create a private 14-day", output.getvalue())
+        self.assertIn("14-day graph", output.getvalue())

@@ -48,6 +48,8 @@ def command_links(root, apply=False):
 
 
 def plan(source, config, root=Path("/")):
+    if config.dashboard_port:
+        raise ConfigError("Install the base monitor first, then enable the dashboard using deploy/dashboard_setup.py")
     if config.push_provider != "ntfy":
         raise ConfigError("This deployment installer is configured for the selected free ntfy provider")
     destinations = {"app": root / "opt/roblox-presence", "config": root / "etc/roblox-presence",

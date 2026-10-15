@@ -4,40 +4,69 @@ Receive a phone notification when a Roblox connection comes online, then open Ro
 
 This is an independent project, without Roblox endorsement or approval. It needs your own Roblox account's session credential. It does not need the other person's password or session.
 
-**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.2.1](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.2.1) is a preview; complete the real online-status and phone-delivery checks before relying on it.
+**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.3.0](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.3.0) is a preview; complete the real online-status and phone-delivery checks before relying on it.
 
 The settings are your own: choose the two accounts, your Linux server, and your notification client. No particular relationship, hardware brand, hostname, or Linux distribution is required. The automated service installer uses systemd; [OpenRC and other supervisors](docs/DEPLOYMENT.md) have separate instructions.
 
-## Activity graph and clickable browser links
+## A private graph page on your phone or computer
 
-Generate a private, interactive **14-day graph** on your server. Each day has a timeline: green means online, pale gray means offline, and stripes mean the monitor could not check. Select a date to see the detected login/logout times, with seconds, below the graph. Times use **the server’s configured timezone**, including daylight saving changes, even if you open the file somewhere else.
+**New in 0.3.0:** bookmark one secret URL, open it in a phone or desktop browser,
+and tap **Generate new graph**. The latest graph stays available until you replace
+it. The URL stays the same across new graphs, closing your browser/SSH session,
+and monitor restarts. Your always-on server handles it; no workstation or open
+terminal is needed. Use a trusted home network or an existing private VPN/SSH path.
 
-After systemd installation or upgrade, type:
+After the administrator's [one-time dashboard setup](docs/DASHBOARD.md), everyday
+commands run as your regular account, **without sudo**:
 
 ```bash
+robox graph
+robox dashboard
+robox status
 robox --help
-sudo robox graph
 ```
 
-`roblox` is also accepted. In **0.2.1**, `graph` prints a temporary clickable **Open graph** browser URL and saves `roblox-presence.html` in your home folder. Keep the viewing terminal open; the link closes after ten minutes or when you press Ctrl+C. Monitoring continues independently.
+`graph` requests a fresh snapshot and prints the private page's link. `dashboard`
+prints that link without replacing the saved graph. You can do both actions on
+mobile using the page alone. `robox graph --file-only` downloads a fresh private
+HTML copy into your home folder; `--output` chooses a different private filename.
+`roblox` is an equivalent command spelling.
 
-To open the link on a phone or another computer on your home network, replace `SERVER_PRIVATE_ADDRESS` with your server’s private numeric IP:
+The interactive **14-day graph** has a timeline for each date: green is observed
+online, gray is offline, and stripes mean unavailable checks. Tap a date to see
+its **recorded online/offline times with hours, minutes and seconds** below.
+Confirmed offline changes show the first offline check and its later confirmation.
+All times use the **server's configured timezone**, including daylight saving,
+even when viewed on a phone somewhere else.
 
-```bash
-sudo robox graph --listen SERVER_PRIVATE_ADDRESS
-```
+**These are observation times, not exact Roblox login/logout records.** Roblox
+supplies current presence and checks normally run every 15 seconds. Reporting
+and network delays add uncertainty; activity before recording or during a gap
+cannot be reconstructed. Recording began in 0.2.0; updates preserve that history.
+The graph covers fourteen local calendar dates, with fifteen elapsed days retained.
 
-You can save that address during setup with `init --graph-listen`, or during an upgrade with `deploy/upgrade.py --apply --graph-listen`; then plain `sudo robox graph` uses it. The default is loopback for viewing on the same computer or through SSH forwarding. A server `file://` link refers to the server’s disk, not your phone.
+The static URL is a secret giving access to viewing and generation. Anyone who has
+it and can reach the server can use it until the administrator replaces the key.
+HTTP does not encrypt traffic. Use a trusted private network or existing encrypted
+VPN/SSH connection, keep the URL out of GitHub, and never forward the port publicly.
+The dashboard has no credential/file-browsing endpoint. The regular account's
+client file contains only this URL; Roblox credentials and the database stay private.
 
-Each browser link has a random secret path and expires automatically. The viewer serves only that report from memory, drops root privileges before listening, and never serves a directory or credentials. It uses HTTP on a specific private address: the token limits access but does not encrypt traffic, so use a trusted home network or an existing private SSH/VPN connection. It does not change firewall, proxy or website settings.
+Setup selects a free unprivileged port and changes only this monitor's config and
+systemd drop-in. Existing websites, reverse proxies, firewall rules and other
+services are preserved. Installation, upgrades and credential maintenance still
+need the administrator; everyday graph/status access does not. Non-systemd
+administrators can configure the same dashboard through their existing supervisor.
+The old temporary/file-only viewer is still available with an explicit private
+monitor configuration. See the [activity and command guide](docs/ACTIVITY.md).
 
-For a saved file only, use `sudo robox graph --file-only`. That returns a properly escaped `file://` link and opens no listener. Download the HTML first if viewing it on another device. The snapshot works offline once downloaded and uses no external scripts/fonts. [Plain-language browser-link, file and command guide](docs/ACTIVITY.md).
+Online alerts name the player and any visible game. One first-game follow-up is
+possible if the initial alert had no game. Missing or private game details are
+never guessed. Keep notification topics and exported reports private too.
 
-**Recording starts when version 0.2.0 or later first runs; updates preserve collected history.** Roblox supplies current presence, not an account login log. The displayed times are when the monitor detected changes, usually checked every 15 seconds. Older activity cannot be recovered, and gaps remain marked unknown. The report shows fourteen local calendar dates, including today; local storage retains fifteen days of checks to cover timezone and clock-change boundaries.
-
-Online alerts now name the player and their game when Roblox shares it. If the player first appears online without a game, the message says so. One follow-up names the first visible game; subsequent game changes remain silent. Private or missing game information is shown as unavailable. The push provider receives these names and times; keep your topic and reports private.
-
-**Already installed an older version?** Follow the [upgrade instructions](docs/ACTIVITY.md#updating-an-existing-systemd-installation). The guarded update backs up the database and restarts this monitor only. It preserves your credentials, notification topic, service settings, and alert state.
+**Already installed an older version?** Follow the [guarded upgrade instructions](docs/ACTIVITY.md#updating-an-existing-systemd-installation).
+They preserve history, credentials, notifications and retry state, and restart
+only this monitor.
 
 ## Can this get my Roblox account banned?
 
@@ -126,7 +155,7 @@ Use a new directory dedicated to this project. For a fresh setup:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.2.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.3.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py

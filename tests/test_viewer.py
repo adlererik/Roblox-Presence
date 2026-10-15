@@ -59,6 +59,11 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(headers["Referrer-Policy"], "no-referrer")
         self.assertEqual(headers["X-Frame-Options"], "DENY")
 
+    def test_listener_startup_never_waits_for_reverse_dns(self):
+        with patch('socket.getfqdn', side_effect=AssertionError('No DNS lookup expected')):
+            with ReportServer(self.report) as other:
+                self.assertGreater(other.server_port, 1024)
+
     def test_missing_wrong_tokens_and_traversal_never_serve_files(self):
         for path in ('/', '/wrong/', '/../../config.json', '/%2e%2e/cookie', self.server.token_path+'?extra=1'):
             with self.subTest(path='synthetic path'):

@@ -76,7 +76,8 @@ def prepare(source=SOURCE, root=Path("/"), apply=False):
     return target
 
 
-def apply_upgrade(graph=False, *, root=Path("/"), graph_listen=None):
+def apply_upgrade(graph=False, *, root=Path("/"), graph_listen=None, dashboard=False,
+                  dashboard_user=None, dashboard_port=8765):
     if root == Path("/") and (os.geteuid() != 0 or not Path("/run/systemd/system").is_dir()):
         raise ConfigError("Apply from a root terminal on the systemd server hosting this monitor")
     os.umask(0o077)
@@ -85,6 +86,11 @@ def apply_upgrade(graph=False, *, root=Path("/"), graph_listen=None):
         graph_listen = listen_address(graph_listen)
     if config.state_dir != root / "var/lib/roblox-presence":
         raise ConfigError("Unexpected state path; inspect this installation before updating")
+    dashboard_plan = None
+    if dashboard:
+        import dashboard_setup
+        dashboard_plan = dashboard_setup.plan(config, user=dashboard_user, address=graph_listen,
+                                              port=dashboard_port, root=root)
     prepare(root=root)  # All collision / source checks before touching the running monitor.
     before = production_snapshot()
     target = prepare(root=root, apply=True)
@@ -94,16 +100,20 @@ def apply_upgrade(graph=False, *, root=Path("/"), graph_listen=None):
     was_active = systemctl("is-active", UNIT).strip() == "active"
     if not was_active:
         raise ConfigError("Monitor must be running before this guarded update")
-    # Only our service is stopped. No unit reload, package operation, proxy or firewall edit.
+    # Only our service is stopped. Dashboard opt-in reloads its new unit drop-in;
+    # no package operation, proxy or firewall edit is performed.
     backup_folder = app / "backups" / ("before-" + __version__ + "-" + str(time.time_ns()))
     backup_folder.mkdir(mode=0o700, parents=True)
     (app / "backups").chmod(0o700)
     config_path = root / "etc/roblox-presence/config.json"
     prepared_config = None
-    if graph_listen is not None:
+    if graph_listen is not None or dashboard_plan:
         original_config = config_path.read_bytes()
         updated_config = json.loads(original_config)
-        updated_config["graph_listen_address"] = graph_listen
+        if graph_listen is not None:
+            updated_config["graph_listen_address"] = graph_listen
+        if dashboard_plan:
+            updated_config = dashboard_setup.updated_config(updated_config, dashboard_plan)
         prepared_config = config_path.with_name("config-" + __version__ + ".new")
         fd = os.open(prepared_config, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "w") as stream:
@@ -112,6 +122,10 @@ def apply_upgrade(graph=False, *, root=Path("/"), graph_listen=None):
             os.fsync(stream.fileno())
         (backup_folder / "config.json").write_bytes(original_config)
         (backup_folder / "config.json").chmod(0o600)
+    if dashboard_plan:
+        if dashboard_plan['dropin'].exists():
+            (backup_folder / 'dashboard.conf').write_bytes(dashboard_plan['dropin'].read_bytes())
+        dashboard_setup.apply_files(dashboard_plan)
     systemctl("stop", UNIT)
     changed = False
     try:
@@ -139,6 +153,8 @@ def apply_upgrade(graph=False, *, root=Path("/"), graph_listen=None):
         if prepared_config is not None:
             prepared_config.replace(config_path)
         command_links(root, apply=True)
+        if dashboard_plan:
+            systemctl("daemon-reload")  # Reload definitions; restart only this monitor below.
         started = time.time()
         systemctl("start", UNIT)
         deadline = time.monotonic() + 55
@@ -165,7 +181,14 @@ def apply_upgrade(graph=False, *, root=Path("/"), graph_listen=None):
     unchanged = all(after.get(name) == value for name, value in before.items())
     result = {"version": __version__, "healthy": True, "production_services_unchanged": unchanged,
               "history_recording_enabled": True, "backup_saved": True}
-    if graph:
+    if dashboard_plan:
+        dashboard_setup.verify(dashboard_plan['url'])
+        result.update(dashboard_enabled=True, operator_client_saved=True,
+                      private_dashboard_url=dashboard_plan['url'])
+        if graph:
+            from roblox_presence.dashboard_client import generate
+            generate(dashboard_plan['url'])
+    elif graph:
         from roblox_presence.report import export_report, render, server_zone, snapshot
         now = time.time()
         zone, label = server_zone()
@@ -184,13 +207,21 @@ def main():
     parser.add_argument("--apply", action="store_true", help="Back up state, switch code and restart this monitor only")
     parser.add_argument("--graph", action="store_true", help="Also save a private HTML graph in the sudo caller's home")
     parser.add_argument("--graph-listen", help="Save this specific private server IP for phone/computer graph links")
+    parser.add_argument("--dashboard", action="store_true", help="Enable the persistent private page and commands without sudo")
+    parser.add_argument("--dashboard-user", help="Non-root operator for the dashboard (default: sudo caller)")
+    parser.add_argument("--dashboard-port", type=int, default=8765, help="Free fixed dashboard port (default: 8765)")
     args = parser.parse_args()
     try:
         if args.apply:
-            return apply_upgrade(args.graph, graph_listen=args.graph_listen)
+            return apply_upgrade(args.graph, graph_listen=args.graph_listen, dashboard=args.dashboard,
+                                 dashboard_user=args.dashboard_user, dashboard_port=args.dashboard_port)
         if args.graph_listen is not None:
             listen_address(args.graph_listen)
         prepare()
+        if args.dashboard:
+            import dashboard_setup
+            dashboard_setup.plan(load('/etc/roblox-presence/config.json'), user=args.dashboard_user,
+                                 address=args.graph_listen, port=args.dashboard_port)
         print("Update can be prepared for " + __version__ + ". Dry run: no files or services changed.")
         return 0
     except (ConfigError, OSError, sqlite3.Error, subprocess.SubprocessError) as exc:

@@ -43,3 +43,14 @@ The browser-link tests make real loopback HTTP requests using synthetic reports.
 7. Validate startup, shutdown, credential permissions, state persistence, supervision, and resource use on the intended host.
 
 Mock tests cannot prove API visibility or device delivery. A push-provider acknowledgement proves acceptance only. Store account-specific results, addresses, inventory, and logs outside Git in private operational files.
+
+
+Persistent dashboard tests exercise real loopback requests, the protected generation
+form, hostile origins/methods/paths, unchanged URLs and saved HTML across restarts,
+failed/throttled generation preserving the previous report, exact observed online
+and confirmed offline timestamps, whitelisted health, private non-root CLI files,
+no private monitor-config reads, direct HTTP without redirect following, occupied
+port/foreign drop-in refusal, monitor-only setup/upgrade and polling after dashboard
+startup failure. Browser previews use synthetic accounts/history only.
+
+A resource-limited render of 80,640 synthetic observations (fourteen days at fifteen-second intervals) was also exercised, using the same isolated worker as the dashboard. Resource limits apply before it reads history, and a failed render preserves the prior graph.

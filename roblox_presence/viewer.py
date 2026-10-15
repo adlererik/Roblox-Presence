@@ -13,6 +13,7 @@ import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import TCPServer
 from urllib.parse import urlsplit
 
 from .config import ConfigError, listen_address
@@ -42,6 +43,12 @@ class ReportServer(HTTPServer):
     allow_reuse_address = False
     request_queue_size = 8
     request_timeout = 3
+
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        # HTTPServer normally reverse-resolves the bind IP here. A private
+        # report must not delay monitor startup waiting for a DNS/PTR lookup.
+        self.server_name, self.server_port = self.socket.getsockname()[:2]
 
     def __init__(self, content, address="127.0.0.1", port=0, lifetime=600, *, clock=time.monotonic):
         address = listen_address(address)
@@ -98,7 +105,7 @@ class ReportHandler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def _respond(self, status, body=b"", content_type="text/plain; charset=utf-8", *, head=False):
+    def _respond(self, status, body=b"", content_type="text/plain; charset=utf-8", *, head=False, headers=()):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
@@ -109,6 +116,8 @@ class ReportHandler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
         self.send_header("Connection", "close")
+        for key, value in headers:
+            self.send_header(key, value)
         if status == 405:
             self.send_header("Allow", "GET, HEAD")
         self.end_headers()
@@ -116,7 +125,7 @@ class ReportHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         self.close_connection = True
 
-    def _report(self, *, head=False):
+    def valid_host(self):
         hosts = self.headers.get_all("Host", [])
         try:
             host = urlsplit("http://" + hosts[0]) if len(hosts) == 1 else None
@@ -125,7 +134,10 @@ class ReportHandler(BaseHTTPRequestHandler):
                           and not host.query and not host.fragment and host.port is not None)
         except ValueError:
             valid_host = False
-        if not valid_host:
+        return valid_host
+
+    def _report(self, *, head=False):
+        if not self.valid_host():
             return self._respond(403, b"Host not permitted.\n", head=head)
         if self.server.clock() >= self.server.expires:
             return self._respond(410, b"This report link expired. Generate a fresh graph.\n", head=head)

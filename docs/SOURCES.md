@@ -28,3 +28,5 @@ Use the host's native service-manager tools to validate a deployment example. AP
 - [Roblox public user profile schema](https://prod.docsiteassets.roblox.com/assets/en-us/cloud/legacy/users/v1.json): target ID, username and display name.
 
 - [Python http.server](https://docs.python.org/3/library/http.server.html) and [socketserver](https://docs.python.org/3/library/socketserver.html): handler, socket timeout and server lifecycle APIs for the restricted temporary viewer. This is not a public production web server.
+
+- [systemd bind and resource restrictions](https://manpages.debian.org/trixie/systemd/systemd.resource-control.5.en.html): allow/deny ordering and unit-specific resource limits used by the optional dashboard drop-in.

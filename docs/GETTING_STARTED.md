@@ -35,7 +35,7 @@ Copy one command at a time:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.2.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.3.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py
@@ -46,7 +46,7 @@ Git's "detached HEAD" message is normal when selecting a release tag. It does no
 
 **Expected:** Python is at least 3.11, preflight includes `"supported": true`, and tests finish with `OK`. For step 8, preflight must also include `"systemd_install_supported": true`. Keep preflight output private because it includes server inventory. If prerequisites are missing, ask the administrator to provide them; do not upgrade a production server as a workaround.
 
-If the project directory already exists, inspect that copy instead of repeating the clone. As an alternative, the release page has `roblox-presence-0.2.1.tar.gz` and its `.sha256` file. Download both onto the server, run `sha256sum -c roblox-presence-0.2.1.tar.gz.sha256`, extract the archive with `tar -xzf roblox-presence-0.2.1.tar.gz`, and enter the extracted `roblox-presence` directory.
+If the project directory already exists, inspect that copy instead of repeating the clone. As an alternative, the release page has `roblox-presence-0.3.0.tar.gz` and its `.sha256` file. Download both onto the server, run `sha256sum -c roblox-presence-0.3.0.tar.gz.sha256`, extract the archive with `tar -xzf roblox-presence-0.3.0.tar.gz`, and enter the extracted `roblox-presence` directory.
 
 ## 3. Choose the two Roblox accounts
 
@@ -146,31 +146,36 @@ sudo python3 -B -m roblox_presence --config /etc/roblox-presence/config.json sta
 
 The server now owns continuous operation and starts the monitor at boot. Your laptop and SSH session can close. Roblox session expiry, outages, visibility changes, and phone delivery settings can still interrupt alerts. Keep the private setup files for [secure credential renewal](../README.md#replace-an-expired-cookie-after-systemd-installation).
 
-## 9. Open the activity graph on your phone or computer
+## 9. Enable your bookmarked private graph page
 
-In the server terminal, run:
+This is a one-time administrator step. From the downloaded source directory on
+this server, replace `SERVER_PRIVATE_ADDRESS` with its own private numeric IP:
 
 ```bash
-sudo robox graph --listen SERVER_PRIVATE_ADDRESS
+sudo python3 deploy/dashboard_setup.py --listen SERVER_PRIVATE_ADDRESS
+sudo python3 deploy/dashboard_setup.py --listen SERVER_PRIVATE_ADDRESS --apply
 ```
 
-Replace `SERVER_PRIVATE_ADDRESS` with the server's own private numeric IP — the
-address you use for SSH at home. Keep your phone or computer on the same trusted
-home network, or use your existing private VPN/SSH connection.
+The first command previews without writing. The second backs up configuration,
+sets up only this monitor's dashboard, restarts only this monitor, and prints a
+private URL. The sudo caller becomes the regular operator. If port 8765 is already
+in use, add `--port ANOTHER_FREE_PORT` to both commands; do not stop the existing app.
 
-**Expected:** `Open graph (temporary browser link):` and an `http://` address.
-Click that whole address, or copy it into your browser's address bar. Keep the
-terminal open while viewing. The link closes after ten minutes or when you press
-**Ctrl+C**; the monitor continues running. The report is a snapshot, so repeat the
-command to see newer activity. Fourteen days fill gradually as the monitor runs.
+**On your phone:** open that URL while on your trusted home network or existing
+private VPN/SSH connection. Bookmark it. Tap **Generate new graph**. The page shows
+generation progress, then the graph. Tap dates to see recorded online/offline times
+with seconds. Close your browser when finished; return to the same bookmark later.
 
-This link contains a secret random path. Keep it private. HTTP does not encrypt
-traffic; use your trusted private network and never forward the port publicly.
-The viewer leaves existing websites, proxy and firewall settings alone. If an
-existing firewall blocks the link, use your established SSH forwarding or download
-the saved report instead. The [activity guide](ACTIVITY.md) explains those options,
-how to save the address for `sudo robox graph`, and every command available through
-`robox --help`.
+The URL and latest saved graph do not expire. Generating another graph replaces
+the snapshot at that same address. No open SSH terminal or laptop is needed.
+Keep the URL secret: anyone with it and network access can view/generate.
+HTTP does not encrypt traffic; never expose the port publicly. Existing firewall,
+proxy and website settings are preserved.
+
+The selected regular account can now run `robox graph`, `robox dashboard`,
+`robox status` and `robox --help` **without sudo**. No access to the Roblox cookie
+or private database is granted. [The dashboard guide](DASHBOARD.md) explains
+port choices, SSH forwarding, other supervisors and the protected client file.
 
 ## Stop or troubleshoot
 

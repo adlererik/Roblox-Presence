@@ -146,6 +146,8 @@ class Config:
     outage_alert_seconds: int = 300
     notify_on_startup: bool = True
     graph_listen_address: str = "127.0.0.1"
+    dashboard_port: int = 0
+    dashboard_key_file: str | None = None
 
     @property
     def scope(self):
@@ -170,7 +172,7 @@ def load(path: str | Path) -> Config:
         raise ConfigError("Cannot read valid JSON configuration") from None
     keys(obj, {"observer_user_id", "target_user_id", "cookie_file", "push", "state_dir",
                "poll_seconds", "offline_confirmations", "timeout_seconds", "alert_ttl_seconds",
-               "outage_alert_seconds", "notify_on_startup", "graph_listen_address"}, "configuration")
+               "outage_alert_seconds", "notify_on_startup", "graph_listen_address", "dashboard"}, "configuration")
     push = obj.get("push")
     keys(push, {"provider", "base_url", "topic_file", "token_file", "user_file"}, "push")
     provider = push.get("provider", "ntfy")
@@ -199,6 +201,12 @@ def load(path: str | Path) -> Config:
     startup = obj.get("notify_on_startup", True)
     if type(startup) is not bool:
         raise ConfigError("notify_on_startup must be a boolean")
+    dashboard = obj.get("dashboard")
+    port, key_file = 0, None
+    if dashboard is not None:
+        keys(dashboard, {"port", "key_file"}, "dashboard")
+        port = integer(dashboard.get("port"), "dashboard.port", 1024, 65535)
+        key_file = reference(dashboard.get("key_file"), "dashboard.key_file")
     return Config(observer, target, reference(obj.get("cookie_file"), "cookie_file"),
                   provider, base_url, topic_file, token_file, user_file, state_dir,
                   integer(obj.get("poll_seconds", 15), "poll_seconds", 10, 300),
@@ -206,4 +214,4 @@ def load(path: str | Path) -> Config:
                   integer(obj.get("timeout_seconds", 8), "timeout_seconds", 1, 30),
                   integer(obj.get("alert_ttl_seconds", 300), "alert_ttl_seconds", 30, 3600),
                   integer(obj.get("outage_alert_seconds", 300), "outage_alert_seconds", 60, 3600),
-                  startup, listen_address(obj.get("graph_listen_address", "127.0.0.1")))
+                  startup, listen_address(obj.get("graph_listen_address", "127.0.0.1")), port, key_file)

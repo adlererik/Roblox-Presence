@@ -51,12 +51,12 @@ Monitoring outages produce an alert after the configured threshold at the next f
 
 The optional systemd deployment reserves these paths:
 
-- `/opt/roblox-presence/releases/0.2.1` and its `current` symlink: source code.
+- `/opt/roblox-presence/releases/0.3.0` and its `current` symlink: source code.
 - `/etc/roblox-presence`: root-only configuration and credential sources.
 - `/var/lib/roblox-presence`: systemd-managed persistent state.
 - `/etc/systemd/system/roblox-presence.service`: this service's unit.
 
-The systemd example has a dynamic unprivileged identity, read-only system/home access, private temporary/device access, no capabilities, no explicit socket binds, a 5% CPU quota, a 128 MiB memory limit, and at most 16 tasks. Other supervisors need their own equivalent isolation configuration. The supervised monitoring worker makes outbound TLS requests only, without inheriting proxy settings. HTTPS redirects are refused so credentials cannot be forwarded to an unexpected host. Roblox URLs are fixed; ntfy's HTTPS origin is configurable.
+The systemd example has a dynamic unprivileged identity, read-only system/home access, private temporary/device access, no capabilities, no explicit socket binds, a 5% CPU quota, a 128 MiB memory limit, and at most 16 tasks. The optional dashboard drop-in permits only its selected TCP port/address family and raises only this unit to 256 MiB. Other supervisors need their own equivalent isolation configuration. The supervised monitoring worker makes outbound TLS requests only, without inheriting proxy settings. HTTPS redirects are refused so credentials cannot be forwarded to an unexpected host. Roblox URLs are fixed; ntfy's HTTPS origin is configurable.
 
 Systemd `LoadCredential` exposes the cookie and topic through restricted credential files. Foreground/OpenRC deployment can instead use absolute paths to protected files accessible only to the dedicated runtime account. Configuration stores references, not secret values. Reloading root credential source files does not update an already-running systemd credential snapshot: restart only this monitor after rotation. Session lifetime depends on Roblox; the monitor cannot guarantee a login will remain valid indefinitely.
 
@@ -87,7 +87,7 @@ Root report/backup operations preserve ownership of any SQLite WAL sidecars so d
 
 ## Temporary browser links
 
-`graph` now starts an independent, temporary single-report HTTP viewer after
+With an explicit private monitor config, `graph` can still start a temporary single-report HTTP viewer after
 saving its private HTML. `--file-only` starts no viewer and prints a valid escaped
 file URI. No change to the monitoring unit or its bind prohibition is required.
 The viewer defaults to loopback; `graph_listen_address` or `--listen` must select
@@ -111,3 +111,41 @@ private networks or an existing encrypted SSH/VPN path, not public hosting.
 Closing a viewer leaves monitoring, its database and its saved report intact.
 The optional upgrade `--graph-listen` backs up and atomically updates only this
 monitor's configuration before restarting its unit with the new source.
+
+
+## Persistent private dashboard (opt-in)
+
+An independent HTTP thread in the existing unprivileged monitor serves a stable
+256-bit secret path on one configured private IP and fixed high TCP port. A
+bookmark opens controls and the last saved HTML. GET never regenerates; a
+same-origin CSRF-protected POST starts a coordinator thread and one lower-priority graph process. The fresh interpreter has no inherited SQLite connections, locks or credential environment, with 128 MiB of address space, eight CPU seconds (ten-second hard limit), and a sixty-second wall-clock deadline.
+The page refreshes while busy. Generation uses a separate read-only consistent
+SQLite snapshot and atomically replaces only `dashboard-report.html` (0600) in
+private state; a failure preserves the previous graph. Cached HTML/key survive
+restarts and do not expire. A ten-second request floor, one job, 32 MiB HTML bound,
+request deadline, bounded queue and inherited CPU/I/O limits bound resource use.
+A dashboard startup problem is caught so polling and delivery continue.
+
+The small fixed API exposes only the page, saved HTML, generation, and whitelisted
+health fields. No cookie, topic, account ID, filesystem path or general action is
+routed. The user-owned 0600 client JSON stores only the private URL. Unprivileged
+CLI commands connect directly to that numeric private address without proxies or
+redirects, so they never need root config/database access. An explicit private
+monitor config retains standalone/administrator commands.
+
+A one-time helper backs up configuration, creates only this monitor's key and
+`roblox-presence.service.d/dashboard.conf`, and writes client settings after dropping
+to the selected operator (including supplementary groups). It reloads unit
+definitions and restarts only this monitor. The base bind-deny remains; the drop-in
+allows only the chosen TCP port/address family and increases only this unit's
+memory limit to 256 MiB. No firewall/proxy/global sudo rule changes. The guarded
+upgrade can combine setup with a release switch and verifies fresh dashboard and
+monitor health plus unchanged other-service PID/start snapshots. Other supervisors
+can use the same optional config with file credentials and equivalent isolation.
+
+The static URL is a persistent bearer secret for viewing/generation, not a login
+or encryption. It is for trusted private networks or existing encrypted VPN/SSH
+access only. The HTTP thread shares the monitor identity and process; sandboxing,
+strict routes/inputs, suppressed logs and private-network binding limit exposure,
+but it is not a public internet web application. API/schema changes must preserve
+that restricted surface. Downloaded HTML contains no key or active control form.

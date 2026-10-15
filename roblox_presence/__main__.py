@@ -29,16 +29,18 @@ def main(argv=None):
     os.umask(0o077)
     parser = argparse.ArgumentParser(prog=Path(sys.argv[0]).name if Path(sys.argv[0]).name in ("roblox", "robox") else "python3 -m roblox_presence",
                                      description="Roblox Presence Monitor — phone alerts and a private 14-day graph",
-                                     epilog="Use COMMAND --help for its options. Installed example: sudo robox graph. robox and roblox are equivalent.")
+                                     epilog="Use COMMAND --help for its options. Dashboard example: robox graph (no sudo). robox and roblox are equivalent.")
     default_config = "/etc/roblox-presence/config.json" if Path(__file__).resolve().is_relative_to(Path("/opt/roblox-presence")) else ".local/config.json"
-    parser.add_argument("--config", default=default_config, help="Configuration file (default: %(default)s); can also follow the command")
+    parser.add_argument("--config", default=None, help="Private monitor configuration; default: " + default_config)
+    parser.add_argument("--client", help="Private dashboard client file; default: ~/.config/roblox-presence/dashboard.json")
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True, title="Commands")
     descriptions = {"help": "Show this command list", "validate": "Check configuration without connecting to Roblox",
                     "check": "Check Roblox once and verify the observing account", "status": "Show the running monitor's health",
                     "run": "Run continuously in this terminal (usually handled by the service)",
                     "subscription": "Show your private ntfy subscription address; keep it secret",
-                    "test-push": "Send a test notification to your phone", "graph": "Create a private 14-day graph and a temporary clickable browser link"}
+                    "test-push": "Send a test notification to your phone", "graph": "Generate a 14-day graph and print its browser link (dashboard: no sudo)",
+                    "dashboard": "Show your bookmarked private graph page (no sudo)"}
     for name, description in descriptions.items():
         command = commands.add_parser(name, help=description, description=description)
         if name == "graph":
@@ -59,12 +61,18 @@ def main(argv=None):
     # Both --config FILE graph and graph --config FILE are accepted.
     for command in commands.choices.values():
         command.add_argument("--config", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+        command.add_argument("--client", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
         if args.command == "help":
             parser.print_help()
             return 0
+        if args.command in ("graph", "status", "dashboard"):
+            from .dashboard_client import client_path, command, load_client
+            if args.client or (args.config is None and client_path().exists()) or args.command == "dashboard":
+                return command(args, load_client(args.client))
+        args.config = args.config or default_config
         if args.command == "resolve":
             print(json.dumps({"user_id": resolve_username(Http(), args.username)}))
             return 0

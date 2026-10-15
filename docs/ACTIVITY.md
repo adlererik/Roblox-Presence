@@ -4,87 +4,78 @@ The monitor has to run on your always-on server. Your phone or computer opens a
 report file when you want to look at it. Turning off the viewing device does not
 stop the server recording new activity.
 
-## Create and open a clickable graph link
+## Generate and view from your phone
 
-After installing version **0.2.1 or later**, run this in your server’s SSH terminal:
+Version **0.3.0** adds a persistent private dashboard. Follow the
+[one-time dashboard setup](DASHBOARD.md), then bookmark the secret URL it prints.
+Open that bookmark on your phone or computer and tap **Generate new graph**.
+The page refreshes while generating and displays the new fourteen-day graph.
+No SSH, terminal, sudo, app installation or running workstation is needed for
+this everyday action. Your server and monitor must still be running and reachable
+on your trusted private network or existing VPN/SSH connection.
 
-```bash
-sudo robox graph --listen SERVER_PRIVATE_ADDRESS
-```
+The **same URL** always opens the latest saved graph. Generating replaces that
+snapshot. Closing a browser/terminal and restarting the monitor do not remove it.
+Reload an already-open tab to see a graph generated on another device. Keep the
+URL private: it grants viewing and generation, and does not expire automatically.
+HTTP is not encryption; do not expose its port or URL publicly.
 
-Replace `SERVER_PRIVATE_ADDRESS` with your server’s private numeric IP address —
-the address you use to connect from your home network. Do not paste the CAPITALS
-unchanged. Your phone/computer must be on the same trusted network, or connected
-through your existing private VPN. Public addresses and all-interface listeners
-are refused. Nothing changes your server’s websites, proxy or firewall.
+## Everyday commands without sudo
 
-Enter your sudo password if asked. The command saves your HTML file and prints
-**Open graph (temporary browser link):** followed by an `http://` URL. **Click that
-whole URL** to open the graph in your phone’s or computer’s browser. If your
-terminal does not make URLs clickable, copy the whole URL and paste it into your
-browser’s address bar.
-
-Keep the terminal open while you view the report. The link closes automatically
-after **ten minutes**. Press **Ctrl+C** to close it sooner. This closes the viewer;
-the always-on monitor keeps running and recording. Once the page is loaded, its
-date filtering works inside your browser. Generate a fresh graph for new activity.
-
-The link’s random path is a secret: anyone who has it and can reach that private
-address can view this snapshot until expiry. The temporary viewer serves only this
-report, never a directory, cookie, configuration or database. It runs without root
-privileges. **HTTP does not encrypt network traffic**; use a trusted home network
-or an existing encrypted SSH/VPN connection. Do not forward the viewer’s port to
-the public internet or publish its URL.
-
-### Make the short command work next time
-
-If your setup or upgrade saved `graph_listen_address`, just use:
+Run these as the regular account selected during dashboard setup:
 
 ```bash
-sudo robox graph
+robox graph
+robox dashboard
+robox status
+robox --help
 ```
 
-An administrator can save the address during first setup with
-`./robox init --graph-listen SERVER_PRIVATE_ADDRESS` alongside the usual account
-ID options. When upgrading, use
-`sudo python3 deploy/upgrade.py --apply --graph-listen SERVER_PRIVATE_ADDRESS`.
-The upgrade backs up configuration and preserves the other settings. A one-off
-`graph --listen` overrides the address for that report without editing setup.
+`graph` starts generating and returns the bookmarked URL; open it to see progress.
+`dashboard` prints the same URL without generating. `status` shows current health
+through the private command API. These commands do not read the Roblox cookie,
+root configuration or SQLite state. Their protected client settings live in
+`~/.config/roblox-presence/dashboard.json` and contain only the private URL.
 
-Without a saved address, `graph` uses `127.0.0.1`: its link opens on the computer
-running the command, or through an SSH tunnel. **A loopback link generated on a
-server does not open directly on your phone.** Use the private server IP as shown
-above for phone viewing on your home network.
-
-Optional settings:
+To download a fresh self-contained HTML copy into your home folder:
 
 ```bash
-sudo robox graph --listen SERVER_PRIVATE_ADDRESS --minutes 30
-sudo robox graph --listen SERVER_PRIVATE_ADDRESS --port 8765
+robox graph --file-only
+robox graph --output "$HOME/activity.html"
 ```
 
-The lifetime can be 1–60 minutes. Normally the program chooses a free port. If you
-choose one that is occupied, it refuses rather than touching the application
-already using it. If an existing firewall blocks the chosen port, the program
-leaves that firewall unchanged; use your established SSH/VPN access instead.
+The printed file URL works on the computer holding the file. Use the persistent
+HTTP dashboard URL on your phone, or download the HTML using **Download saved
+graph** on the page. Downloaded copies remain until you delete them.
 
-For existing SSH forwarding, generate a loopback link on the server, then forward
-its port from the viewing computer in a second terminal:
+### Without a persistent dashboard
+
+An explicit private monitor config still supports the older temporary viewer:
+
+```bash
+sudo robox --config /etc/roblox-presence/config.json graph --listen SERVER_PRIVATE_ADDRESS
+```
+
+Replace the CAPITALS with this server's private numeric IP. This legacy mode
+needs state access, keeps its terminal open and expires after ten minutes.
+`--minutes 30` allows up to sixty minutes; `--port` selects a free unprivileged
+port; defaults bind loopback or the config's saved address. It never changes a
+firewall or proxy. The persistent dashboard needs none of those temporary options.
+
+For a loopback listener with existing SSH forwarding, forward its printed port
+from a second terminal on the viewing computer:
 
 ```bash
 ssh -N -L LOCAL_PORT:127.0.0.1:REPORT_PORT SERVER_USERNAME@SERVER_ADDRESS
 ```
 
-Replace every CAPITALIZED value, using the port in the printed report URL as
-`REPORT_PORT` and a free local port as `LOCAL_PORT`. Open the printed URL on the
-viewing computer with its port changed to `LOCAL_PORT`; keep the secret path
-exactly the same. Phone SSH clients need their corresponding local-forwarding
-feature. This uses existing SSH access and needs no public web service.
+Replace every CAPITALIZED value. Open the printed URL using `LOCAL_PORT`, keeping
+the secret path unchanged. Phone SSH clients use their local-forwarding feature.
 
 ## Save a file only, without a viewer
 
 ```bash
-sudo robox graph --file-only
+robox graph --file-only
 ```
 
 The command prints the full filename and an **Open saved graph** `file://` link.
@@ -97,7 +88,7 @@ readable only by you. Run the command again to replace it with a fresh snapshot.
 To choose another file in a folder you own:
 
 ```bash
-sudo robox graph --file-only --output "$HOME/activity.html"
+robox graph --file-only --output "$HOME/activity.html"
 ```
 
 To view a server file elsewhere, download it with your existing SSH/SFTP client,
@@ -172,17 +163,18 @@ robox --version
 ```
 
 The first two show a short explanation of every command. `COMMAND --help` gives
-its options. The table below uses the installed systemd version. Commands that
-read protected setup/state require `sudo`; help does not.
+its options. The table below uses the installed systemd version. Dashboard graph/status commands use the regular operator account. Installation and
+credential administration remain protected; help never needs configuration.
 
 | Command | What it does |
 | --- | --- |
 | `robox --help` or `robox help` | Show all program commands. |
 | `robox --version` | Show the installed version. |
-| `sudo robox graph` | Save the private graph and print a temporary browser link; keep the terminal open. |
-| `sudo robox graph --listen SERVER_PRIVATE_ADDRESS` | Open from a phone/computer on that private network. |
-| `sudo robox graph --file-only` | Save and link the HTML file without a viewer. |
-| `sudo robox status` | Show whether checks and notification delivery are healthy. |
+| `robox graph` | Generate a fresh snapshot and print the permanent private page URL; no sudo or open terminal. |
+| `robox dashboard` | Print the bookmarked private page URL without replacing its graph. |
+| `robox graph --file-only` | Download a fresh HTML copy and print its local file link. |
+| `robox graph --output "$HOME/activity.html"` | Download a fresh HTML copy to your chosen private filename. |
+| `robox status` | Show current monitor health through the private dashboard API. |
 | `sudo robox validate` | Check configuration structure without testing credentials or the network. |
 | `robox check` | Check current Roblox status and verify the observing account; use a protected direct-file setup config as explained below. |
 | `robox test-push` | Send a phone test; use the protected direct-file setup config below. |
@@ -242,7 +234,7 @@ On the server, obtain the new release in a **new source directory**, then run it
 tests. For example, start in a new empty folder and use:
 
 ```bash
-git clone --branch v0.2.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.3.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 -m unittest discover -v
 sudo python3 deploy/upgrade.py
@@ -252,24 +244,27 @@ The last command is a dry run: it changes nothing. If it reports that the update
 can be prepared, apply it:
 
 ```bash
-sudo python3 deploy/upgrade.py --apply --graph --graph-listen SERVER_PRIVATE_ADDRESS
+sudo python3 deploy/upgrade.py --apply --dashboard --graph --graph-listen SERVER_PRIVATE_ADDRESS
 ```
 
-Replace `SERVER_PRIVATE_ADDRESS` with the server’s own private numeric IP if you want phone/computer links on your home network. Omit `--graph-listen` to preserve the current address setting (loopback if unset).
+Replace `SERVER_PRIVATE_ADDRESS` with the server’s own private numeric IP. The sudo caller becomes the regular operator; use `--dashboard-user SERVER_USERNAME` for a different existing non-root account. Port 8765 must be free, or choose another with `--dashboard-port`. Omit `--dashboard` to upgrade code without enabling the page.
 
 This saves a private consistent database backup, preserves account credentials,
 the topic and service configuration, installs the command shortcuts, and restarts
 **only `roblox-presence.service`**. It checks fresh monitor health and compares
-other running services’ process/start times. It does not install packages, reboot,
-reload units, or edit networking. Expect `"healthy": true`,
-`"production_services_unchanged": true`, and the graph’s filename. From now on:
+other running services’ process/start times. It does not install packages, reboot, or edit networking. Dashboard opt-in adds only
+`roblox-presence.service.d/dashboard.conf` and reloads unit definitions before
+starting this monitor. Expect `"healthy": true`, `"production_services_unchanged": true`,
+and a private dashboard URL. Keep that URL secret and bookmark it. From now on:
 
 ```bash
 robox --help
-sudo robox graph
+robox graph
+robox dashboard
+robox status
 ```
 
-Version 0.2.0 introduced recording; 0.2.1 preserves that history. For a first
+Version 0.2.0 introduced recording; 0.3.0 preserves that history. For a first
 upgrade from 0.1.0, history starts afterwards and fills gradually; there is no
 earlier log to import from 0.1.0. Keep real online visibility
 and phone-delivery checks in your acceptance process. A passing offline check is
