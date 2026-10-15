@@ -16,13 +16,35 @@ SOURCE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE))
 
 from roblox_presence.config import ConfigError, load
+from roblox_presence import __version__
 
 
 def source_files(source):
-    files = [source / "README.md", source / "config.example.json", source / "config.direct.example.json"]
+    files = [source / "README.md", source / "config.example.json", source / "config.direct.example.json",
+             source / "roblox", source / "robox"]
     for folder, suffix in (("roblox_presence", "*.py"), ("docs", "*.md")):
         files.extend((source / folder).glob(suffix))
     return files
+
+
+def command_links(root, apply=False):
+    """Reserve only our two explicitly requested CLI names; refuse collisions."""
+    for name in ("roblox", "robox"):
+        path = root / "usr/local/bin" / name
+        target = "/opt/roblox-presence/current/" + name
+        if path.exists() or path.is_symlink():
+            if not path.is_symlink() or os.readlink(path) != target:
+                raise ConfigError("An unrelated command already uses roblox or robox; it was preserved")
+        elif apply:
+            missing = []
+            parent = path.parent
+            while not parent.exists():
+                missing.append(parent)
+                parent = parent.parent
+            path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+            for parent in missing:
+                parent.chmod(0o755)
+            path.symlink_to(target)
 
 
 def plan(source, config, root=Path("/")):
@@ -32,6 +54,7 @@ def plan(source, config, root=Path("/")):
                     "unit": root / "etc/systemd/system/roblox-presence.service"}
     if any(p.exists() or p.is_symlink() for p in destinations.values()):
         raise ConfigError("Reserved monitor paths already exist; first-install script will not overwrite them")
+    command_links(root)
     required = [source / "roblox_presence/__main__.py", source / "deploy/roblox-presence.service"]
     if any(not p.is_file() or p.is_symlink() for p in source_files(source) + required):
         raise ConfigError("Source release is incomplete")
@@ -55,7 +78,7 @@ def install(source, config, root=Path("/"), apply=False):
     app, etc, unit = destinations["app"], destinations["config"], destinations["unit"]
     app.mkdir(mode=0o755)
     etc.mkdir(mode=0o700)
-    release = app / "releases/0.1.0"
+    release = app / "releases" / __version__
     release.mkdir(mode=0o755, parents=True)
     # Explicit allowlist; the source tree's .local/, Git history, and caches never copy.
     for src in source_files(source):
@@ -64,11 +87,12 @@ def install(source, config, root=Path("/"), apply=False):
         dest = release / src.relative_to(source)
         dest.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
         shutil.copyfile(src, dest)
-        dest.chmod(0o644)
+        dest.chmod(0o755 if src.name in ("roblox", "robox") else 0o644)
     # chmod parents created under umask 0077, including releases/.
     for directory, _, _ in os.walk(app):
         Path(directory).chmod(0o755)
-    (app / "current").symlink_to("releases/0.1.0")
+    (app / "current").symlink_to("releases/" + __version__)
+    command_links(root, apply=True)
     for key in ("roblox_cookie", "topic", "token"):
         if key in values:
             name = {"topic": "ntfy_topic", "token": "ntfy_token"}.get(key, key)

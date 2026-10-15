@@ -4,9 +4,28 @@ Receive a phone notification when a Roblox connection comes online, then open Ro
 
 This is an independent project, without Roblox endorsement or approval. It needs your own Roblox account's session credential. It does not need the other person's password or session.
 
-**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.1.0](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.1.0) is an initial preview; complete the real online-status and phone-delivery checks before relying on it.
+**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.2.0](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.2.0) is an initial preview; complete the real online-status and phone-delivery checks before relying on it.
 
 The settings are your own: choose the two accounts, your Linux server, and your notification client. No particular relationship, hardware brand, hostname, or Linux distribution is required. The automated service installer uses systemd; [OpenRC and other supervisors](docs/DEPLOYMENT.md) have separate instructions.
+
+## New in 0.2.0: activity graph and easy commands
+
+Generate a private, interactive **14-day graph** on your server. Each day has a timeline: green means online, pale gray means offline, and stripes mean the monitor could not check. Select a date to see the detected login/logout times, with seconds, below the graph. Times use **the server’s configured timezone**, including daylight saving changes, even if you open the file somewhere else.
+
+After systemd installation or upgrade, type:
+
+```bash
+robox --help
+sudo robox graph
+```
+
+`roblox` is also accepted. The graph command saves `roblox-presence.html` in your home folder. Download that file from the server and open it in a browser. It is a snapshot: run the command again to refresh it. It works without an internet connection once downloaded, uses no external scripts/fonts, and opens no server port. [How to create and open the graph, with a complete command guide](docs/ACTIVITY.md).
+
+**Recording starts when the updated monitor runs.** Roblox supplies current presence, not an account login log. The displayed times are when the monitor detected changes, usually checked every 15 seconds. Older activity cannot be recovered, and gaps remain marked unknown. The report shows fourteen local calendar dates, including today; local storage retains fifteen days of checks to cover timezone and clock-change boundaries.
+
+Online alerts now name the player and their game when Roblox shares it. If the player first appears online without a game, the message says so. One follow-up names the first visible game; subsequent game changes remain silent. Private or missing game information is shown as unavailable. The push provider receives these names and times; keep your topic and reports private.
+
+**Already installed 0.1.0?** Follow the [upgrade instructions](docs/ACTIVITY.md#updating-an-existing-systemd-installation). The guarded update backs up the database and restarts this monitor only. It preserves your credentials, notification topic, service settings, and alert state.
 
 ## Can this get my Roblox account banned?
 
@@ -95,7 +114,7 @@ Use a new directory dedicated to this project. For a fresh setup:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.1.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.2.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py
@@ -169,7 +188,7 @@ On your phone, open ntfy, tap **+ / Subscribe**, and add a subscription:
 
 For prompt Android delivery, enable **Instant delivery** for the subscription if that option is offered. Allow background operation in Android's app settings and enable ntfy's **High** notification channel. Check sound/vibration and Do Not Disturb settings. Menu names vary by device/app version; follow the [official ntfy Android guide](https://docs.ntfy.sh/subscribe/phone/) if yours differs. The F-Droid build uses instant delivery automatically.
 
-Notifications contain generic status text and an observation time. They contain no Roblox account names, IDs, game locations, or session credentials. Online notifications link to Roblox's home page; open the connection in Roblox yourself. You can use an authenticated self-hosted ntfy server separately if you need access controls.
+Notifications contain the player's display name, username, any game name Roblox shares, and the server-local observation time. The push provider and anyone with the topic can see them. They contain no numeric account/place/server IDs or session credentials. Online notifications link to Roblox's home page; open the connection in Roblox yourself. You can use an authenticated self-hosted ntfy server separately if you need access controls.
 
 ### 7. Test the phone and real account visibility — in the server terminal
 
@@ -301,9 +320,9 @@ Use step 5 or the optional phone Quick Sign In helper to obtain your own fresh s
 ## Behavior and limits
 
 - The default poll interval is 15 seconds. Detection depends on when Roblox reports the change, request time, and phone delivery; immediate notification is not guaranteed. Very brief transitions or transitions during outages can be missed.
-- Online, in-game, and in-studio count as online. One alert is sent per observed online session. Two consecutive valid offline results rearm it; switching games while online does not trigger another alert.
+- Online, in-game, and in-studio count as online. One alert is sent per observed online session. Two consecutive valid offline results rearm it. If the initial alert had no game, the first visible game can send one follow-up; later game switches do not trigger more alerts.
 - Failed checks, expired sessions, missing results, and unknown status types are never treated as offline. Source failures lasting five minutes generate an outage alert when delivery is possible, followed by a recovery alert.
 - SQLite preserves transitions and pending notifications across restarts. Delivery retries run separately, honor backoff, pause when observations are stale/failing, and expire undelivered online alerts after five minutes. A crash after provider acceptance but before saving the acknowledgement can cause a duplicate.
-- This is a status notifier. It does not record game locations, experience history, messages, or a connections list. Protected local state contains account IDs, the latest observed state/check times, a bounded notification outbox, and a protected replacement session credential when Roblox rotates it. Hosted push services receive generic messages and timing; they do not receive the monitored account's identifier or cookie.
+- Protected local state contains account IDs, fifteen days of presence checks and detected changes, the latest player name/activity, a bounded notification outbox, and a protected replacement session credential when Roblox rotates it. Completed notification records are pruned after seven days and can contain player/game names. It does not keep a game-location history, messages, or a connections list. Hosted push services receive player/game names and observation times, never session cookies or numeric account/place/server IDs. Exported graphs contain presence times and the player name, never credentials or the ntfy topic; keep them private.
 
 See [deployment options](docs/DEPLOYMENT.md), [design](docs/DESIGN.md), [verification](docs/VERIFICATION.md), and [primary sources](docs/SOURCES.md). Keep personal account names, device/host details, inventory, credentials, and logs in ignored private files rather than published examples. Systemd deployment has been tested on Linux; the OpenRC example has syntax checks but has not been tested on a live OpenRC host.

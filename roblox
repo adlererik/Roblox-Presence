@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Roblox Presence command, usable from source or the isolated installation."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from roblox_presence.__main__ import main
+sys.exit(main())

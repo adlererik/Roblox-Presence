@@ -23,3 +23,6 @@ beginner setup references checked on 2026-10-15:
 - [ntfy terms](https://docs.ntfy.sh/terms/): free use is subject to limits; Android receipt must still be tested on the intended device.
 
 Use the host's native service-manager tools to validate a deployment example. API visibility and device delivery require live acceptance checks for each installation; the documentation does not promise immediate or unrestricted presence access.
+
+- [Roblox presence response schema](https://prod.docsiteassets.roblox.com/assets/en-us/cloud/legacy/presence/v1.json): current presence type and nullable `lastLocation`; no login/logout history endpoint.
+- [Roblox public user profile schema](https://prod.docsiteassets.roblox.com/assets/en-us/cloud/legacy/users/v1.json): target ID, username and display name.

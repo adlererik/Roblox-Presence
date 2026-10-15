@@ -16,6 +16,7 @@ from .monitor import run
 from .push import Push
 from .roblox import Roblox, resolve_username
 from .state import read_health
+from . import __version__
 
 
 def write_secret(path, value):
@@ -26,11 +27,22 @@ def write_secret(path, value):
 
 def main(argv=None):
     os.umask(0o077)
-    parser = argparse.ArgumentParser(description="Roblox Presence Monitor")
-    parser.add_argument("--config", default="config.local.json")
-    commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("validate", "check", "status", "run", "subscription", "test-push"):
-        commands.add_parser(name)
+    parser = argparse.ArgumentParser(prog=Path(sys.argv[0]).name if Path(sys.argv[0]).name in ("roblox", "robox") else "python3 -m roblox_presence",
+                                     description="Roblox Presence Monitor — phone alerts and a private 14-day graph",
+                                     epilog="Use COMMAND --help for its options. Installed example: sudo robox graph. robox and roblox are equivalent.")
+    default_config = "/etc/roblox-presence/config.json" if Path(__file__).resolve().is_relative_to(Path("/opt/roblox-presence")) else ".local/config.json"
+    parser.add_argument("--config", default=default_config, help="Configuration file (default: %(default)s); can also follow the command")
+    parser.add_argument("--version", action="version", version=__version__)
+    commands = parser.add_subparsers(dest="command", required=True, title="Commands")
+    descriptions = {"help": "Show this command list", "validate": "Check configuration without connecting to Roblox",
+                    "check": "Check Roblox once and verify the observing account", "status": "Show the running monitor's health",
+                    "run": "Run continuously in this terminal (usually handled by the service)",
+                    "subscription": "Show your private ntfy subscription address; keep it secret",
+                    "test-push": "Send a test notification to your phone", "graph": "Create a private 14-day activity graph to open in a browser"}
+    for name, description in descriptions.items():
+        command = commands.add_parser(name, help=description, description=description)
+        if name == "graph":
+            command.add_argument("--output", help="HTML file (default: roblox-presence.html in your home folder)")
     resolve = commands.add_parser("resolve", help="Resolve a Roblox username using the public API")
     resolve.add_argument("username")
     init = commands.add_parser("init", help="Create local configuration and a random ntfy topic")
@@ -39,9 +51,15 @@ def main(argv=None):
     init.add_argument("--target-id", required=True, type=int)
     init.add_argument("--without-cookie", action="store_true", help="Prepare files without asking for a session yet")
     credential = commands.add_parser("set-cookie", help="Enter your own Roblox session value without echo")
+    # Both --config FILE graph and graph --config FILE are accepted.
+    for command in commands.choices.values():
+        command.add_argument("--config", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
+        if args.command == "help":
+            parser.print_help()
+            return 0
         if args.command == "resolve":
             print(json.dumps({"user_id": resolve_username(Http(), args.username)}))
             return 0
@@ -101,6 +119,13 @@ def main(argv=None):
             data = read_health(config, time.time())
             print(json.dumps(data, indent=2))
             return 0 if data["healthy"] else 1
+        elif args.command == "graph":
+            from .report import export_report, render, server_zone, snapshot
+            now = time.time()
+            zone, label = server_zone()
+            data = snapshot(config, now, zone)
+            output = export_report(render(data, now, zone, label, config.poll_seconds), args.output)
+            print(f"Graph saved: {output}\nOpen this HTML file in a browser. Times use {label} on the server.\nThis is a private snapshot; run graph again to refresh it. Past activity before recording began is unavailable.")
         elif args.command == "run":
             run(config)
         return 0

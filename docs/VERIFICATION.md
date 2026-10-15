@@ -13,6 +13,9 @@ Coverage includes:
 - Credential permissions, symlink/FIFO rejection, bounded network responses, safe logs, push payloads without identifying profile links, and graceful worker shutdown.
 - Native POSIX credential ACLs for dynamic service identities, including rejection of other users, group/world grants, malformed ACLs, and ordinary group-readable files.
 - Isolated systemd installer behavior, service configuration through protected credentials, dry-run/collision protection, direct file-based configuration, supervisor-independent preflight, and release exclusion/reproducibility checks.
+- Additive schema migration, bounded history retention, confirmed logout timestamps, no invented logout during failures, read-only scoped reporting, DST transitions, HTML escaping/CSP, private atomic report exports, and both CLI spellings.
+- One first-game follow-up per session, pending-alert enrichment, silent startup, cancellation and durable game notification metadata, with optional profile retry floors.
+- Monitor-only upgrade selection, a real SQLite backup and release switch in an isolated filesystem, unchanged credentials/units, and command collision protection.
 - Release Git exclusion rules, refusal of source symlinks, and an untracked private canary that must never enter the archive.
 
 The core suite has been exercised on Linux with Python 3.13 and 3.14. The systemd unit has passed native unit verification with systemd 257. The OpenRC example is syntax checked; real OpenRC activation is not included in those results. These checks do not certify every distribution, service-manager version, or device.
@@ -22,6 +25,8 @@ The optional browser authorization helper has separate Node.js checks:
 observer mismatch rejection, credential validation, and atomic private saving.
 The official login page and Quick Sign-in code popup have been exercised in a
 sandboxed headless browser; that does not prove phone approval for every account.
+
+The 0.2.0 report was also checked in a browser at desktop and phone widths, including date filtering/reset and a full-day timeline that fits the phone. These previews use synthetic activity, never a real account history.
 
 ## Live acceptance checks for each installation
 

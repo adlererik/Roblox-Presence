@@ -1,4 +1,6 @@
 import importlib.util
+import contextlib
+import io
 import dataclasses
 import hashlib
 import json
@@ -182,7 +184,7 @@ class DeploymentTests(unittest.TestCase):
     def test_packaging_excludes_private_runtime_files(self):
         # Test the actual produced source archive rather than just its filter code.
         subprocess.run([sys.executable, "tools/package.py"], cwd=ROOT, capture_output=True, check=True)
-        archive = ROOT / "dist/roblox-presence-0.1.0.tar.gz"
+        archive = ROOT / "dist/roblox-presence-0.2.0.tar.gz"
         first = hashlib.sha256(archive.read_bytes()).hexdigest()
         subprocess.run([sys.executable, "tools/package.py"], cwd=ROOT, capture_output=True, check=True)
         self.assertEqual(hashlib.sha256(archive.read_bytes()).hexdigest(), first)
@@ -214,7 +216,7 @@ class DeploymentTests(unittest.TestCase):
                 canary = b"PACKAGE_PRIVATE_CANARY_NOT_A_REAL_CREDENTIAL_" + Path(folder).name.encode()
                 (Path(folder) / "private-session").write_bytes(canary)
                 subprocess.run([sys.executable, "tools/package.py"], cwd=ROOT, capture_output=True, check=True)
-                with tarfile.open(ROOT / "dist/roblox-presence-0.1.0.tar.gz") as archive:
+                with tarfile.open(ROOT / "dist/roblox-presence-0.2.0.tar.gz") as archive:
                     for member in archive:
                         self.assertNotIn(".local", Path(member.name).parts)
                         self.assertFalse(canary in archive.extractfile(member).read(),
@@ -224,13 +226,86 @@ class DeploymentTests(unittest.TestCase):
                 private.rmdir()
 
     def test_packaging_refuses_source_symlinks_to_private_files(self):
-        for name in ("README.md", ".gitignore", "config.example.json", "config.direct.example.json"):
+        for name in ("README.md", ".gitignore", "config.example.json", "config.direct.example.json", "roblox", "robox"):
             (self.base / name).write_text("generic source fixture")
         (self.base / "docs").mkdir()
         (self.base / "docs/linked.md").symlink_to(self.cookie)
         with patch.object(packager, "ROOT", self.base), self.assertRaisesRegex(ValueError, "symlinks"):
             packager.package()
 
+
+
+upgrade_spec = importlib.util.spec_from_file_location("presence_upgrader", ROOT / "deploy/upgrade.py")
+upgrader = importlib.util.module_from_spec(upgrade_spec)
+upgrade_spec.loader.exec_module(upgrader)
+
+
+class UpgradeTests(unittest.TestCase):
+    setUp = DeploymentTests.setUp
+    tearDown = DeploymentTests.tearDown
+    # Reuse installation fixtures; the extra assertions exercise a real SQLite backup
+    # and release switch with only service-control operations mocked.
+    def old_install(self):
+        installer.install(ROOT, self.config, self.root, apply=True)
+        app = self.root / "opt/roblox-presence"
+        (app / "releases/0.2.0").rename(app / "releases/0.1.0")
+        (app / "current").unlink()
+        (app / "current").symlink_to("releases/0.1.0")
+        path = self.root / "etc/roblox-presence/config.json"
+        obj = json.loads(path.read_text())
+        obj["state_dir"] = str(self.root / "var/lib/roblox-presence")
+        path.write_text(json.dumps(obj))
+        from roblox_presence.state import State
+        state = State(load(path), 1000)
+        state.observe(True, 1000)
+        state.close()
+        return app
+
+    def test_upgrade_dry_run_collision_and_private_copy(self):
+        app = self.old_install()
+        unit = (self.root / "etc/systemd/system/roblox-presence.service").read_bytes()
+        path = self.root / "usr/local/bin/robox"
+        path.unlink()
+        path.write_text("unrelated-command")
+        with self.assertRaises(ConfigError):
+            upgrader.prepare(root=self.root)
+        self.assertEqual(path.read_text(), "unrelated-command")
+        path.unlink()
+        with patch.object(upgrader, "systemctl") as ctl:
+            upgrader.prepare(root=self.root)
+            self.assertFalse((app / "releases/0.2.0").exists())
+            target = upgrader.prepare(root=self.root, apply=True)
+            self.assertFalse((target / ".local").exists())
+            self.assertTrue((target / "robox").stat().st_mode & 0o100)
+            ctl.assert_not_called()
+        self.assertEqual((self.root / "etc/systemd/system/roblox-presence.service").read_bytes(), unit)
+        self.assertEqual(os.readlink(app / "current"), "releases/0.1.0")
+
+    def test_upgrade_backups_state_preserves_credentials_and_selects_only_monitor(self):
+        app = self.old_install()
+        cookie = (self.root / "etc/roblox-presence/roblox_cookie").read_bytes()
+        production = {"unrelated.service": {"MainPID": "123", "ExecMainStartTimestampMonotonic": "456"}}
+        calls = []
+        def control(*args):
+            calls.append(args)
+            return "active\n" if args[0] == "is-active" else ""
+        with patch.object(upgrader, "production_snapshot", return_value=production), \
+             patch.object(upgrader, "systemctl", side_effect=control), \
+             patch.object(upgrader, "read_health", return_value={"healthy": True, "last_success": 9999999999, "updated_at": 9999999999}), \
+             contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(upgrader.apply_upgrade(root=self.root), 0)
+        self.assertEqual(calls, [("is-active", "roblox-presence.service"), ("stop", "roblox-presence.service"), ("start", "roblox-presence.service")])
+        self.assertEqual(os.readlink(app / "current"), "releases/0.2.0")
+        self.assertEqual((self.root / "etc/roblox-presence/roblox_cookie").read_bytes(), cookie)
+        backups = list((app / "backups").glob("*/state.sqlite3"))
+        self.assertEqual(len(backups), 1)
+        import sqlite3
+        with contextlib.closing(sqlite3.connect(backups[0])) as db:
+            self.assertEqual(db.execute("SELECT stable_online FROM monitor").fetchone()[0], 1)
+        self.assertEqual(backups[0].stat().st_mode & 0o777, 0o600)
+        state_dir = self.root / "var/lib/roblox-presence"
+        self.assertFalse((state_dir / "state.sqlite3-shm").exists())
+        self.assertFalse((state_dir / "state.sqlite3-wal").exists())
 
 if __name__ == "__main__":
     unittest.main()

@@ -53,7 +53,9 @@ class Monitor:
             LOG.warning("presence_check_failed code=%s", code)
             return delay(self.poll_failures, base=self.config.poll_seconds,
                          minimum=getattr(exc, "retry_after", None))
-        queued = self.state.observe(online, self.clock())
+        observed_at = self.clock()
+        details = self.source.notification_details() if hasattr(self.source, "notification_details") else {}
+        queued = self.state.observe(online, observed_at, details=details)
         if self.poll_failures:
             LOG.info("presence_checks_recovered")
         self.poll_failures = 0

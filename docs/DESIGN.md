@@ -30,7 +30,7 @@ One Python process, two threads, one local SQLite file. The polling thread valid
 
 State is scoped to observer and target IDs. Transition and outbox insertion share a SQLite transaction with WAL and full synchronous commits. Outbox entries expire and completed entries are pruned after seven days. A future unknown database version is refused rather than erased.
 
-Push success requires a structured acknowledgement from the selected provider, not just HTTP 200. Push payloads omit Roblox account names/IDs and game information; online alerts link to Roblox's home page rather than an identifying profile URL. Source and push retries have separate exponential backoff. A provider's `Retry-After` is a minimum; its retry barrier is persisted and applies to all new events. Errors logged by the monitor use fixed codes only. Arbitrary HTTP bodies, URLs, exception strings, and cookies are never logged.
+Push success requires a structured acknowledgement from the selected provider, not just HTTP 200. Push payloads include the player’s display name, username, visible game description and server-local observation time. They omit credentials and numeric account/place/server IDs; alerts link to Roblox’s home page. Game descriptions come only from type-2 presence `lastLocation`; no hidden game lookup is attempted. A public profile lookup is cached for an hour, with a bounded retry floor on failure, and cannot invalidate an otherwise valid presence result. One first-game follow-up per online session is durable across restarts; unsent online alerts are enriched instead when possible. Source and push retries have separate exponential backoff. A provider's `Retry-After` is a minimum; its retry barrier is persisted and applies to all new events. Errors logged by the monitor use fixed codes only. Arbitrary HTTP bodies, URLs, exception strings, and cookies are never logged.
 
 Roblox may rotate `.ROBLOSECURITY` through `Set-Cookie`. The transport preserves
 all such headers. The source only adopts rotation after the observer identity is
@@ -51,7 +51,7 @@ Monitoring outages produce an alert after the configured threshold at the next f
 
 The optional systemd deployment reserves these paths:
 
-- `/opt/roblox-presence/releases/0.1.0` and its `current` symlink: source code.
+- `/opt/roblox-presence/releases/0.2.0` and its `current` symlink: source code.
 - `/etc/roblox-presence`: root-only configuration and credential sources.
 - `/var/lib/roblox-presence`: systemd-managed persistent state.
 - `/etc/systemd/system/roblox-presence.service`: this service's unit.
@@ -70,3 +70,17 @@ Systemd `LoadCredential` exposes the cookie and topic through restricted credent
 6. Other services on the host remain running and unchanged.
 
 The automated tests cover software failure rules. Gates 3 and 4 require real account and phone verification; fixture tests cannot prove them.
+
+## Activity history and reports
+
+Schema 2 adds a bounded presence sample table and notification metadata. Migration from schema 1 runs in an explicit atomic transaction and is additive: session IDs, pending acknowledgements, and provider backoff are preserved. Each successful poll records online/offline/pending; failed polls record unknown. Confirmed logout events refer to the first consecutive offline check and separately retain the confirmation time. Pending offline samples become offline only after confirmation; an interruption breaks that chain. Initial states are labeled “first seen,” not an inferred login/logout. Retention is fifteen elapsed days, pruned on the existing maintenance schedule.
+
+The report reads a consistent, read-only SQLite snapshot for fourteen server-local dates. It does not load any credentials, poll Roblox, change state, or make HTTP requests. It draws no continuous known span across failed/pending samples or a gap exceeding the freshness threshold. It does not extrapolate after the last recorded check. Session activity during gaps remains unknown even if stable alert state persists across a restart.
+
+Clock times are rendered on the host with its timezone database, using historical offsets, seconds, timezone abbreviations, and UTC offsets. A 23- or 25-hour local date has its own axis; repeated clock hours show different offsets in the event table. The browser receives preformatted times and never converts them to its own zone. Correct system time and timezone configuration are the administrator’s responsibility; the application does not change them or infer physical location.
+
+HTML is self-contained, uses escaped and bounded API text, contains no credentials/topic, and applies a restrictive content security policy. Export is atomic, mode 0600, and owned by the invoking user (the original sudo user when applicable). Unsafe output types/owners and writable shared parent folders are refused. Existing report copies are outside database retention; operators must delete them when no longer wanted.
+
+The installer reserves `/usr/local/bin/roblox` and `/usr/local/bin/robox` as links to its launchers, refusing unrelated command collisions. Upgrade leaves the service unit and credential files unchanged, takes a private SQLite backup while this monitor is stopped, switches its release link, and starts only this unit. After activation it never automatically restores an old database, which could erase new acknowledgements and replay notifications. Preserve state/backups and inspect a failed upgrade.
+
+Root report/backup operations preserve ownership of any SQLite WAL sidecars so diagnostics cannot lock the unprivileged worker out of its state. Report queries remain read-only SQL.

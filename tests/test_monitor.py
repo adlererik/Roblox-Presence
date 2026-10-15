@@ -340,6 +340,7 @@ class IntegrationTests(Fixture):
     def test_offline_online_provider_failure_restart_retry_without_duplicate(self):
         clock = [1000]
         source_http = FakeHttp([response({"id": 11}), response({"userPresences": [{"userId": 22, "userPresenceType": 0}]}),
+                                response({"id": 22, "name": "ExampleConnection", "displayName": "Example Player"}),
                                 response({"id": 11}), response({"userPresences": [{"userId": 22, "userPresenceType": 2}]})])
         push_http = FakeHttp([response({}, 503), response({"event": "message", "id": "accepted", "topic": self.topic.read_text()})])
         state = self.db()

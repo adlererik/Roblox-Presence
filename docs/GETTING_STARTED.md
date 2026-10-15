@@ -2,7 +2,7 @@
 
 Roblox Presence Monitor sends a phone notification when a consenting Roblox connection appears online. It can help friends, relatives, or teammates find a time to play together without repeatedly opening Roblox to check. You open Roblox and join them yourself after the alert.
 
-Your always-on Linux server checks Roblox, normally about every 15 seconds. It sends a generic message through ntfy, which delivers it to your phone. Your laptop does not have to stay on. A phone notification depends on Roblox's reporting, your server's internet connection, and your phone's delivery settings; it is not an instant-delivery guarantee.
+Your always-on Linux server checks Roblox, normally about every 15 seconds. It sends a message with the player’s name and any visible game through ntfy, which delivers it to your phone. Your laptop does not have to stay on. A phone notification depends on Roblox's reporting, your server's internet connection, and your phone's delivery settings; it is not an instant-delivery guarantee.
 
 ## What you need
 
@@ -35,7 +35,7 @@ Copy one command at a time:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.1.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.2.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py
@@ -46,7 +46,7 @@ Git's "detached HEAD" message is normal when selecting a release tag. It does no
 
 **Expected:** Python is at least 3.11, preflight includes `"supported": true`, and tests finish with `OK`. For step 8, preflight must also include `"systemd_install_supported": true`. Keep preflight output private because it includes server inventory. If prerequisites are missing, ask the administrator to provide them; do not upgrade a production server as a workaround.
 
-If the project directory already exists, inspect that copy instead of repeating the clone. As an alternative, the release page has `roblox-presence-0.1.0.tar.gz` and its `.sha256` file. Download both onto the server, run `sha256sum -c roblox-presence-0.1.0.tar.gz.sha256`, extract the archive with `tar -xzf roblox-presence-0.1.0.tar.gz`, and enter the extracted `roblox-presence` directory.
+If the project directory already exists, inspect that copy instead of repeating the clone. As an alternative, the release page has `roblox-presence-0.2.0.tar.gz` and its `.sha256` file. Download both onto the server, run `sha256sum -c roblox-presence-0.2.0.tar.gz.sha256`, extract the archive with `tar -xzf roblox-presence-0.2.0.tar.gz`, and enter the extracted `roblox-presence` directory.
 
 ## 3. Choose the two Roblox accounts
 
@@ -109,7 +109,7 @@ python3 -m roblox_presence --config .local/config.json check
 python3 -m roblox_presence --config .local/config.json run
 ```
 
-Leave this terminal open for the trial. The command keeps running and does not return to its prompt. Arrange a normal offline-to-online transition and confirm one phone alert. If the connection is already online, the default is one initial alert. Two successful offline polls rearm the next alert; changing games while online should not send another.
+Leave this terminal open for the trial. The command keeps running and does not return to its prompt. Arrange a normal offline-to-online transition and confirm one phone alert. If the connection is already online, the default is one initial alert. Two successful offline polls rearm the next alert; the first visible game can produce one follow-up if the initial alert had no game. Later game switches do not send more alerts.
 
 Open Roblox and join the connection normally. In a second SSH terminal, enter the project directory and run `python3 -m roblox_presence --config .local/config.json status` to check that monitoring remains healthy while you play. After the trial, press **Ctrl+C** in its original terminal to stop it. This temporary trial does not yet survive closing the terminal.
 
