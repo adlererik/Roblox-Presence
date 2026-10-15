@@ -32,6 +32,17 @@ State is scoped to observer and target IDs. Transition and outbox insertion shar
 
 Push success requires a structured acknowledgement from the selected provider, not just HTTP 200. Push payloads omit Roblox account names/IDs and game information; online alerts link to Roblox's home page rather than an identifying profile URL. Source and push retries have separate exponential backoff. A provider's `Retry-After` is a minimum; its retry barrier is persisted and applies to all new events. Errors logged by the monitor use fixed codes only. Arbitrary HTTP bodies, URLs, exception strings, and cookies are never logged.
 
+Roblox may rotate `.ROBLOSECURITY` through `Set-Cookie`. The transport preserves
+all such headers. The source only adopts rotation after the observer identity is
+verified, on a bounded CSRF retry, or after a valid presence result. It retains
+only `.ROBLOSECURITY`, rejects invalid values/domains/deletion, and atomically
+saves the current value in a mode-0600 state file. Subsequent polls and restarts
+use it; the installer exports the current value rather than an invalidated source.
+A changed source credential overrides an older cache. The cached value belongs
+to the source fingerprint consumed by the request, so a concurrent manual refresh
+does not accidentally adopt an older request's rotation for the new source.
+The state directory is therefore also credential storage and must stay private.
+
 Online delivery requires a recent successful observation in the same session with no outstanding source error. A message can still arrive after an account has just gone offline: observations and network delivery cannot be atomic with Roblox. It therefore says when the state was observed. Alerts that cannot be delivered within five minutes expire rather than misleadingly announcing an old session.
 
 Monitoring outages produce an alert after the configured threshold at the next failed check. Recovery produces a recovery message. If the internet or notification service is down, an outage alert cannot be guaranteed to reach the phone; the local `status` command exposes the failure. A working provider acknowledgement proves acceptance, not Android receipt.

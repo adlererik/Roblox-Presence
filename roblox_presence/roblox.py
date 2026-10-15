@@ -2,8 +2,8 @@
 
 import json
 
-from .config import cookie
 from .http import ServiceError, require_success
+from .session import Session
 
 USERS = "https://users.roblox.com"
 PRESENCE = "https://presence.roblox.com/v1/presence/users"
@@ -28,6 +28,7 @@ def parse_presence(data, target_user_id):
 class Roblox:
     def __init__(self, config, http):
         self.config, self.http = config, http
+        self.session = Session(config)
 
     def validate_target(self):
         data = require_success(self.http.request("GET", f"{USERS}/v1/users/{self.config.target_user_id}"),
@@ -38,21 +39,29 @@ class Roblox:
             raise ServiceError("roblox_target_banned")
 
     def poll(self):
-        headers = {"Cookie": ".ROBLOSECURITY=" + cookie(self.config.cookie_file)}
-        identity = require_success(self.http.request("GET", f"{USERS}/v1/users/authenticated",
-                                                     headers=headers), "roblox")
+        headers = {"Cookie": ".ROBLOSECURITY=" + self.session.value()}
+        identity_response = self.http.request("GET", f"{USERS}/v1/users/authenticated", headers=dict(headers))
+        identity = require_success(identity_response, "roblox")
         if type(identity.get("id")) is not int or identity["id"] != self.config.observer_user_id:
             raise ServiceError("roblox_observer_mismatch")
+        rotated = self.session.update(identity_response)
+        if rotated:
+            headers["Cookie"] = ".ROBLOSECURITY=" + rotated
         headers["Content-Type"] = "application/json"
         body = json.dumps({"userIds": [self.config.target_user_id]}).encode("utf-8")
-        result = self.http.request("POST", PRESENCE, headers=headers, body=body)
+        result = self.http.request("POST", PRESENCE, headers=dict(headers), body=body)
         csrf = result.headers.get("x-csrf-token")
         if result.status == 403 and csrf:
             if len(csrf) > 4096 or any(ord(c) < 32 or ord(c) > 126 for c in csrf):
                 raise ServiceError("roblox_invalid_csrf")
+            rotated = self.session.update(result)
+            if rotated:
+                headers["Cookie"] = ".ROBLOSECURITY=" + rotated
             result = self.http.request("POST", PRESENCE,
                                        headers={**headers, "X-CSRF-Token": csrf}, body=body)
-        return parse_presence(require_success(result, "roblox"), self.config.target_user_id)
+        online = parse_presence(require_success(result, "roblox"), self.config.target_user_id)
+        self.session.update(result)
+        return online
 
 
 def resolve_username(http, username):

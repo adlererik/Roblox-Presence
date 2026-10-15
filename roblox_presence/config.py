@@ -4,6 +4,7 @@ import json
 import os
 import re
 import stat
+import struct
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -13,8 +14,30 @@ class ConfigError(Exception):
     pass
 
 
+def systemd_acl_private(fd, info):
+    """Recognize systemd's root-owned, read-only snapshot with one service ACL.
+
+    With DynamicUser, the group-read mode bit is the ACL mask, not a grant to
+    the owning group. Accept only root plus this process's individual UID;
+    ordinary files never use this exception.
+    """
+    if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o440:
+        return False
+    try:
+        data = os.getxattr(fd, "system.posix_acl_access")
+    except OSError:
+        return False
+    if len(data) != 44 or struct.unpack_from("<I", data)[0] != 2:
+        return False
+    entries = [struct.unpack_from("<HHI", data, offset) for offset in range(4, len(data), 8)]
+    expected = {(1, 4, 0xFFFFFFFF), (2, 4, os.geteuid()), (4, 0, 0xFFFFFFFF),
+                (16, 4, 0xFFFFFFFF), (32, 0, 0xFFFFFFFF)}
+    return len(entries) == len(expected) and set(entries) == expected
+
+
 def secret(reference: str) -> str:
-    if reference.startswith("credential:"):
+    managed = reference.startswith("credential:")
+    if managed:
         name = reference.split(":", 1)[1]
         directory = os.environ.get("CREDENTIALS_DIRECTORY")
         if not directory or not re.fullmatch(r"[a-zA-Z0-9_-]+", name):
@@ -29,7 +52,8 @@ def secret(reference: str) -> str:
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(fd, "r", encoding="utf-8") as stream:
             info = os.fstat(stream.fileno())
-            if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+            private = not info.st_mode & 0o077 or (managed and systemd_acl_private(stream.fileno(), info))
+            if not stat.S_ISREG(info.st_mode) or not private:
                 raise ConfigError("Credential files must be regular files with mode 0600 or 0400")
             value = stream.read(16385).strip()
     except (OSError, UnicodeError):
@@ -108,7 +132,8 @@ class Config:
         return f"{self.observer_user_id}:{self.target_user_id}"
 
     def credentials(self):
-        values = {"roblox_cookie": cookie(self.cookie_file)}
+        from .session import Session
+        values = {"roblox_cookie": Session(self).value()}
         for name, ref in (("topic", self.push_topic_file), ("token", self.push_token_file),
                           ("user", self.push_user_file)):
             if ref:

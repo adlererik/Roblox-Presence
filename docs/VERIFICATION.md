@@ -7,12 +7,20 @@ Run the suite with `python3 -m unittest discover -v`. Tests use synthetic accoun
 Coverage includes:
 
 - Observer identity validation, presence types, missing/unknown responses, authentication failure, CSRF handling, and rate limiting.
+- Preservation of multiple `Set-Cookie` headers, protected session rotation across restarts, source refresh precedence, current-credential export, and invalid/mismatched rotation rejection.
 - New-session detection, offline confirmation, unknown observations, restart deduplication, scoped state, and process locking.
 - Persistent delivery retries, server retry floors, stale/expired alerts, cancellation, acknowledgement validation, and outage/recovery events.
 - Credential permissions, symlink/FIFO rejection, bounded network responses, safe logs, push payloads without identifying profile links, and graceful worker shutdown.
-- Isolated systemd installer behavior, dry-run/collision protection, direct file-based configuration, supervisor-independent preflight, and release exclusion/reproducibility checks.
+- Native POSIX credential ACLs for dynamic service identities, including rejection of other users, group/world grants, malformed ACLs, and ordinary group-readable files.
+- Isolated systemd installer behavior, service configuration through protected credentials, dry-run/collision protection, direct file-based configuration, supervisor-independent preflight, and release exclusion/reproducibility checks.
 
 The core suite has been exercised on Linux with Python 3.13 and 3.14. The systemd unit has passed native unit verification with systemd 257. The OpenRC example is syntax checked; real OpenRC activation is not included in those results. These checks do not certify every distribution, service-manager version, or device.
+
+The optional browser authorization helper has separate Node.js checks:
+`node --test tests/test_quick_login.cjs`. They cover displayed-code parsing,
+observer mismatch rejection, credential validation, and atomic private saving.
+The official login page and Quick Sign-in code popup have been exercised in a
+sandboxed headless browser; that does not prove phone approval for every account.
 
 ## Live acceptance checks for each installation
 

@@ -10,8 +10,9 @@ StartLimitBurst=10
 Type=notify
 DynamicUser=yes
 WorkingDirectory=/opt/roblox-presence/current
-ExecStart=/usr/bin/python3 -B -m roblox_presence --config /etc/roblox-presence/config.json run
+ExecStart=/usr/bin/python3 -B -m roblox_presence --config %d/config.json run
 Environment=PYTHONUNBUFFERED=1
+LoadCredential=config.json:/etc/roblox-presence/config.json
 LoadCredential=roblox_cookie:/etc/roblox-presence/roblox_cookie
 LoadCredential=ntfy_topic:/etc/roblox-presence/ntfy_topic
 StateDirectory=roblox-presence

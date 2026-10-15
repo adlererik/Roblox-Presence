@@ -26,7 +26,7 @@ You need:
 - Permission to administer that computer. Continuous service installation below uses **systemd 250 or newer**. Debian and Ubuntu commonly use systemd; other distributions may also use it. [OpenRC and other supervisor options](docs/DEPLOYMENT.md) are available separately.
 - Your own Roblox account and a consenting connection whose online status your account can see.
 - An Android phone with the free **ntfy** notification app. The free hosted service needs no paid plan or account for this walkthrough; [usage limits apply](https://docs.ntfy.sh/terms/).
-- A desktop web browser for this version's session-cookie setup, initially and when a replacement session is needed. This is a current setup limitation, not a requirement to keep a workstation running. No browser is installed on the server by these instructions.
+- A way to authorize your own session: the optional phone Quick Sign In flow below, or a desktop browser for manual session-cookie setup. Neither method requires a workstation to stay on for monitoring. Account security events may require a new authorization later.
 
 The initial account session and real phone delivery have to be tested for each installation. Automated tests cannot prove either one works.
 
@@ -40,7 +40,23 @@ Your phone tasks are to install ntfy, add the exact private topic prepared for y
 
 On ntfy's **Subscribe to topic** screen, paste that exact string into **Topic name**, leave **Use another server** unchecked for the default `ntfy.sh` setup, check **Instant delivery in doze mode**, and tap **SUBSCRIBE**. If the main screen warns about battery optimization, tap **FIX NOW** and allow the background/battery exemption requested by Android. The [official phone guide](https://docs.ntfy.sh/subscribe/phone/) explains delivery options.
 
-The authenticated monitor still needs your own Roblox session. Installing ntfy does not connect your Roblox account. The current secure prompt is described in step 5; ordinary mobile browsers do not provide the desktop developer-tools workflow described there. A server administrator can handle deployment but cannot authorize Roblox as you or obtain your account session without your participation. Do not send credentials through chat as a shortcut. A successful public API reply saying `offline` is not evidence that monitoring without an account login will work; compare during a known online session before choosing another authentication approach.
+The authenticated monitor still needs your own Roblox session. Installing ntfy does not connect your Roblox account. An operator can use [phone Quick Sign In](#optional-phone-authorization-with-quick-sign-in) to request a new server session that you approve inside Roblox. The manual secure prompt is described in step 5; ordinary mobile browsers do not provide that desktop developer-tools workflow. A server administrator cannot approve Roblox as you. Do not send passwords or cookies through chat as a shortcut. A successful public API reply saying `offline` is not evidence that monitoring without an account login will work; compare during a known online session before choosing another authentication approach.
+
+### Optional phone authorization with Quick Sign In
+
+An operator can run `tools/quick_login.cjs` in an isolated, temporary browser on the always-on computer. This optional setup helper needs Node.js, Playwright, and a sandboxed Chromium browser. The running monitor still uses Python's standard library only. The helper does not install system packages, launch games, solve security challenges, or activate monitoring. Arrange browser prerequisites separately without changing production applications.
+
+From the source directory, with the browser prerequisites available:
+
+```bash
+node tools/quick_login.cjs /absolute/path/private/config.json /absolute/path/private/quick-login-status.json
+```
+
+The configuration must reference a protected writable cookie file, not a systemd `credential:` reference. The protected status file must not already exist. If Playwright or its browser is in a private runtime directory, the operator must configure its module/browser paths for that invocation.
+
+The helper opens Roblox's official login page, declines optional cookies, selects **Quick Sign-in**, and records a short-lived code for its operator. On the logged-in phone, the current Roblox sign-in popup instructs **More Page → Quick Sign In**: return to **More**, rather than searching Settings submenus. Enter only the code requested for your own server, review the device, and approve **full account access**. Keep both devices nearby/on the same home network. This is a full session, not a limited presence permission or Roblox approval of the monitor.
+
+The helper verifies the resulting account ID before saving the session in the protected file, rejects a different account, closes the browser, and stops if the code expires. It does not regenerate codes in a loop. Check its status for `authorized`, `expired`, or `failed`; do not start monitoring merely because a code was displayed. Roblox says this feature is not available to every account. If the app option is absent or a direct code-entry link fails, use the supported account login tools rather than disabling security protections. See [Roblox's Quick Login help](https://en.help.roblox.com/hc/en-us/articles/360056582012-Quick-Login).
 
 ### If you are administering the server yourself
 
@@ -109,7 +125,7 @@ Here, **observer** means your account; **target** means the connection you want 
 
 **Read this first:** this version uses your `.ROBLOSECURITY` session cookie, which can grant account access. It is not a limited “online status only” key. [Roblox warns never to share cookies](https://en.help.roblox.com/hc/en-us/articles/203313380-Keep-Your-Account-Safe). Keep it entirely on computers you control and trust. Never send it to a chatbot, another person, GitHub, ntfy, a screenshot, or a cookie-copying website/extension. If you do not want a full account credential on the server, do not use this version's authenticated setup.
 
-The program sends this credential only to its fixed Roblox HTTPS endpoints. It stores the value in a protected file, excluded from Git and release archives. Anyone who controls your server or your user account may still be able to read it. No credential from the connection being monitored is required.
+The program sends this credential only to its fixed Roblox HTTPS endpoints. It stores the value in a protected file, excluded from Git and release archives. When Roblox rotates the session, it saves the replacement in a protected file inside the state directory and uses that value on subsequent checks and restarts. Treat the entire state directory as private credential storage. Anyone who controls your server or your user account may still be able to read it. No credential from the connection being monitored is required.
 
 First, in the **server terminal**, run:
 
@@ -254,6 +270,7 @@ These commands affect this monitor only. They retain its credentials and state. 
 | `roblox_observer_mismatch` | The session belongs to another account. Sign in to the configured observer account and replace only its cookie. |
 | `visible_status` says `offline` while the connection is online | Confirm the correct ID and official visibility settings together. Do not activate continuous monitoring until a known online check works. |
 | The terminal accepts a test, but the phone stays silent | Check server/topic spelling, notification permission, High channel, Instant delivery/background settings, mute and Do Not Disturb. Repeat the locked/idle test. |
+| A message arrives without sound | First test while ntfy is in the background. The monitor sends High-priority messages; ntfy's Settings → Channel settings → High controls their sound. Choose an audible tone, check the phone's notification volume, and allow ntfy in any active interruption mode if needed. |
 | A rate-limit error | The monitor backs off automatically. Do not speed up polling, rotate identities, or run parallel copies to evade limits. |
 | `Reserved monitor paths already exist` / installation refused | This is a first-install tool. Inspect the existing installation or partial files before doing anything else; do not delete unrelated paths. |
 | Service is running but `healthy` is false | Wait for the first checks, then read this unit's logs. Running alone does not mean Roblox access and push delivery work. |
@@ -278,6 +295,6 @@ Use step 5 to obtain your own fresh session. Continue to the copy/restart comman
 - Online, in-game, and in-studio count as online. One alert is sent per observed online session. Two consecutive valid offline results rearm it; switching games while online does not trigger another alert.
 - Failed checks, expired sessions, missing results, and unknown status types are never treated as offline. Source failures lasting five minutes generate an outage alert when delivery is possible, followed by a recovery alert.
 - SQLite preserves transitions and pending notifications across restarts. Delivery retries run separately, honor backoff, pause when observations are stale/failing, and expire undelivered online alerts after five minutes. A crash after provider acceptance but before saving the acknowledgement can cause a duplicate.
-- This is a status notifier. It does not record game locations, experience history, messages, or a connections list. Protected local state contains account IDs, the latest observed state/check times, and a bounded notification outbox. Hosted push services receive generic messages and timing; they do not receive the monitored account's identifier or cookie.
+- This is a status notifier. It does not record game locations, experience history, messages, or a connections list. Protected local state contains account IDs, the latest observed state/check times, a bounded notification outbox, and a protected replacement session credential when Roblox rotates it. Hosted push services receive generic messages and timing; they do not receive the monitored account's identifier or cookie.
 
 See [deployment options](docs/DEPLOYMENT.md), [design](docs/DESIGN.md), [verification](docs/VERIFICATION.md), and [primary sources](docs/SOURCES.md). Keep personal account names, device/host details, inventory, credentials, and logs in ignored private files rather than published examples. Systemd deployment has been tested on Linux; the OpenRC example has syntax checks but has not been tested on a live OpenRC host.

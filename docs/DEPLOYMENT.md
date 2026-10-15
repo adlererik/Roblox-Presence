@@ -37,7 +37,19 @@ sudo systemctl status roblox-presence.service --no-pager
 sudo journalctl -u roblox-presence.service -n 50 --no-pager
 ```
 
-Systemd manages code under `/opt/roblox-presence`, root-only credential sources under `/etc/roblox-presence`, and persistent state under `/var/lib/roblox-presence`. To inspect health:
+Systemd manages code under `/opt/roblox-presence`, root-only credential sources under `/etc/roblox-presence`, and persistent state under `/var/lib/roblox-presence`.
+
+The dynamic service identity reads its configuration and secrets from systemd's
+protected credential directory. It does not need access to the root-only source
+directory in `/etc`.
+
+Newer systemd versions protect dynamic-user credential snapshots with a
+service-specific ACL. Its read-only mask can appear as mode `0440` even though
+the owning group has no access. The loader recognizes only a root-owned snapshot
+with read access for this service UID and no additional user, group, or world
+access. Ordinary credential files still require owner-only permissions.
+
+To inspect health:
 
 ```bash
 cd /opt/roblox-presence/current

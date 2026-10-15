@@ -24,6 +24,7 @@ class Response:
     status: int
     headers: dict
     body: bytes
+    set_cookies: tuple[str, ...] = ()
 
     def json(self):
         try:
@@ -72,7 +73,8 @@ class Http:
                 data = stream.read(131073)
                 if len(data) > 131072:
                     raise ServiceError("response_too_large")
-                return Response(stream.code, {k.lower(): v for k, v in stream.headers.items()}, data)
+                set_cookies = tuple(stream.headers.get_all("Set-Cookie", [])) if hasattr(stream.headers, "get_all") else ()
+                return Response(stream.code, {k.lower(): v for k, v in stream.headers.items()}, data, set_cookies)
         except ServiceError:
             raise
         except (URLError, OSError, socket.timeout, HTTPException, ValueError, UnicodeError):

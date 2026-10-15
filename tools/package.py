@@ -13,7 +13,8 @@ def package():
     files = [ROOT / "README.md", ROOT / "config.example.json", ROOT / "config.direct.example.json"]
     for folder, pattern in (("roblox_presence", "*.py"), ("tests", "*.py"),
                             ("deploy", "*.py"), ("deploy", "*.service"), ("docs", "*.md"),
-                            ("tools", "*.py"), ("deploy", "*.openrc")):
+                            ("tools", "*.py"), ("tools", "*.cjs"), ("tests", "*.cjs"),
+                            ("deploy", "*.openrc")):
         files.extend(sorted((ROOT / folder).glob(pattern)))
     files = sorted(set(files))
     output = ROOT / "dist"

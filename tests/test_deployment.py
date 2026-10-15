@@ -1,6 +1,10 @@
 import importlib.util
+import dataclasses
 import hashlib
 import json
+import os
+import shlex
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -36,6 +40,7 @@ class DeploymentTests(unittest.TestCase):
         obj = json.loads((ROOT / "config.example.json").read_text())
         obj["cookie_file"] = str(self.cookie)
         obj["push"]["topic_file"] = str(self.topic)
+        obj["state_dir"] = str(self.base / "source-state")
         self.config_file = self.base / "config.json"
         self.config_file.write_text(json.dumps(obj))
         self.config = load(self.config_file)
@@ -75,6 +80,35 @@ class DeploymentTests(unittest.TestCase):
             installer.install(ROOT, self.config, self.root, apply=True)
         self.assertEqual(path.read_text(), "keep-existing-unit")
         self.assertFalse((self.root / "opt/roblox-presence").exists())
+
+    def test_service_reads_private_config_through_its_credential_directory(self):
+        installer.install(ROOT, self.config, self.root, apply=True)
+        unit = (self.root / "etc/systemd/system/roblox-presence.service").read_text()
+        credentials = self.base / "service-credentials"
+        credentials.mkdir(mode=0o700)
+        for line in unit.splitlines():
+            if line.startswith("LoadCredential="):
+                name, source = line.removeprefix("LoadCredential=").split(":", 1)
+                destination = credentials / name
+                shutil.copyfile(self.root / source.lstrip("/"), destination)
+                destination.chmod(0o400)
+        command = shlex.split(next(line.removeprefix("ExecStart=")
+                                 for line in unit.splitlines() if line.startswith("ExecStart=")))
+        config_argument = command[command.index("--config") + 1]
+        # Reading /etc directly would fail for DynamicUser inside the root-only directory.
+        self.assertTrue(config_argument.startswith("%d/"))
+        config_path = Path(config_argument.replace("%d", str(credentials)))
+        self.assertTrue(config_path.is_file())
+        with patch.dict(os.environ, {"CREDENTIALS_DIRECTORY": str(credentials)}):
+            config = dataclasses.replace(load(config_path), state_dir=self.root / "var/lib/roblox-presence")
+            self.assertEqual(config.credentials()["roblox_cookie"], "TEST_OBSERVER_COOKIE")
+            self.assertEqual(config.credentials()["topic"], "rp-" + "f" * 48)
+        command[0] = sys.executable
+        command[command.index("--config") + 1] = str(config_path)
+        command[-1] = "validate"
+        result = subprocess.run(command, cwd=self.root / "opt/roblox-presence/current",
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_missing_credential_refused_before_files_are_written(self):
         self.cookie.unlink()
