@@ -4,7 +4,7 @@ Receive a phone notification when a Roblox connection comes online, then open Ro
 
 This is an independent project, without Roblox endorsement or approval. It needs your own Roblox account's session credential. It does not need the other person's password or session.
 
-**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.3.0](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.3.0) is a preview; complete the real online-status and phone-delivery checks before relying on it.
+**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.3.1](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.3.1) is a preview; complete the real online-status and phone-delivery checks before relying on it.
 
 The settings are your own: choose the two accounts, your Linux server, and your notification client. No particular relationship, hardware brand, hostname, or Linux distribution is required. The automated service installer uses systemd; [OpenRC and other supervisors](docs/DEPLOYMENT.md) have separate instructions.
 
@@ -67,6 +67,11 @@ never guessed. Keep notification topics and exported reports private too.
 **Already installed an older version?** Follow the [guarded upgrade instructions](docs/ACTIVITY.md#updating-an-existing-systemd-installation).
 They preserve history, credentials, notifications and retry state, and restart
 only this monitor.
+
+Version **0.3.1** fixes setup with an existing group-writable `.config` folder and
+recovers matching dashboard files left by a stopped 0.3.0 setup. The shared folder
+and other applications' settings keep their permissions; only this application's
+settings are private. See [setup recovery](docs/DASHBOARD.md#if-030-stopped-while-saving-operator-settings).
 
 ## Can this get my Roblox account banned?
 
@@ -155,7 +160,7 @@ Use a new directory dedicated to this project. For a fresh setup:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.3.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.3.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py

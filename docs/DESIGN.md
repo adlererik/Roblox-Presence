@@ -51,7 +51,7 @@ Monitoring outages produce an alert after the configured threshold at the next f
 
 The optional systemd deployment reserves these paths:
 
-- `/opt/roblox-presence/releases/0.3.0` and its `current` symlink: source code.
+- `/opt/roblox-presence/releases/0.3.1` and its `current` symlink: source code.
 - `/etc/roblox-presence`: root-only configuration and credential sources.
 - `/var/lib/roblox-presence`: systemd-managed persistent state.
 - `/etc/systemd/system/roblox-presence.service`: this service's unit.
@@ -149,3 +149,5 @@ access only. The HTTP thread shares the monitor identity and process; sandboxing
 strict routes/inputs, suppressed logs and private-network binding limit exposure,
 but it is not a public internet web application. API/schema changes must preserve
 that restricted surface. Downloaded HTML contains no key or active control form.
+
+Dashboard setup accepts a user-owned, group-writable shared `.config` parent without chmodding it; its application subfolder must be private (0700) and the client stays 0600. User-owned setup completes before privileged key/drop-in writes. The privilege-dropping child returns only controlled safe error messages. A matching partial preparation is reusable only when its drop-in equals the exact generated currently configured or requested port/family content; custom content is refused and the existing key is preserved.

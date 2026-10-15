@@ -35,7 +35,7 @@ Copy one command at a time:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.3.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.3.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py
@@ -46,7 +46,7 @@ Git's "detached HEAD" message is normal when selecting a release tag. It does no
 
 **Expected:** Python is at least 3.11, preflight includes `"supported": true`, and tests finish with `OK`. For step 8, preflight must also include `"systemd_install_supported": true`. Keep preflight output private because it includes server inventory. If prerequisites are missing, ask the administrator to provide them; do not upgrade a production server as a workaround.
 
-If the project directory already exists, inspect that copy instead of repeating the clone. As an alternative, the release page has `roblox-presence-0.3.0.tar.gz` and its `.sha256` file. Download both onto the server, run `sha256sum -c roblox-presence-0.3.0.tar.gz.sha256`, extract the archive with `tar -xzf roblox-presence-0.3.0.tar.gz`, and enter the extracted `roblox-presence` directory.
+If the project directory already exists, inspect that copy instead of repeating the clone. As an alternative, the release page has `roblox-presence-0.3.1.tar.gz` and its `.sha256` file. Download both onto the server, run `sha256sum -c roblox-presence-0.3.1.tar.gz.sha256`, extract the archive with `tar -xzf roblox-presence-0.3.1.tar.gz`, and enter the extracted `roblox-presence` directory.
 
 ## 3. Choose the two Roblox accounts
 

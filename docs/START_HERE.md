@@ -4,13 +4,13 @@
 
 Your always-on Linux server checks Roblox, normally about every 15 seconds. A notification service called ntfy delivers an alert naming the player and any visible game to your phone. Then you open Roblox yourself. Your laptop does not need to stay on, and the monitor never launches a game or joins one for you.
 
-Version 0.3.0 adds a bookmarked private graph page. Open it on a phone or computer and tap **Generate new graph**. Its secret URL stays the same, and the latest snapshot remains until replaced. Daily `robox graph`, `robox dashboard`, `robox status` and `robox --help` commands need no sudo after one administrator setup. Follow the [dashboard guide](https://github.com/adlererik/Roblox-Presence/blob/v0.3.0/docs/DASHBOARD.md) and [activity/upgrade guide](https://github.com/adlererik/Roblox-Presence/blob/v0.3.0/docs/ACTIVITY.md).
+Version 0.3.1 includes a bookmarked private graph page. Open it on a phone or computer and tap **Generate new graph**. Its secret URL stays the same, and the latest snapshot remains until replaced. Daily `robox graph`, `robox dashboard`, `robox status` and `robox --help` commands need no sudo after one administrator setup. Follow the [dashboard guide](https://github.com/adlererik/Roblox-Presence/blob/v0.3.1/docs/DASHBOARD.md) and [activity/upgrade guide](https://github.com/adlererik/Roblox-Presence/blob/v0.3.1/docs/ACTIVITY.md).
 
 The fourteen-day graph includes recorded online/offline times with seconds in the server's timezone, with visible unknown gaps. These are observation times, usually checked every fifteen seconds, not exact account login records. Recording starts with 0.2.0 or later; upgrades preserve it. Older activity cannot be recovered.
 
 ## Install it on your own server
 
-Follow the [plain-language installation guide for v0.3.0](https://github.com/adlererik/Roblox-Presence/blob/v0.3.0/docs/GETTING_STARTED.md). It includes the commands, the device to use for each step, and the result to look for:
+Follow the [plain-language installation guide for v0.3.1](https://github.com/adlererik/Roblox-Presence/blob/v0.3.1/docs/GETTING_STARTED.md). It includes the commands, the device to use for each step, and the result to look for:
 
 1. Connect to your own Linux server using your existing SSH login.
 2. Download the reviewed release and check Python and the service manager.
@@ -31,6 +31,6 @@ Each installation creates its own private configuration, credential files, and r
 
 ## Release status
 
-[v0.3.0 is a preview release](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.3.0). Automated tests, synthetic graph previews, authenticated status requests, systemd credential access, and locked-phone notification delivery have been exercised. A real known-online transition must still be verified on each installation; this preview does not claim completed end-to-end online-transition validation. An offline reply is insufficient to prove visibility. OpenRC's example is syntax checked, not live validated.
+[v0.3.1 is a preview release](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.3.1). Automated tests, synthetic graph previews, authenticated status requests, systemd credential access, and locked-phone notification delivery have been exercised. A real known-online transition must still be verified on each installation; this preview does not claim completed end-to-end online-transition validation. An offline reply is insufficient to prove visibility. OpenRC's example is syntax checked, not live validated.
 
-See the [README](https://github.com/adlererik/Roblox-Presence/blob/v0.3.0/README.md) for limits, account risks, troubleshooting, and secure session renewal. If asking for help, describe the error without posting private setup files or credentials.
+See the [README](https://github.com/adlererik/Roblox-Presence/blob/v0.3.1/README.md) for limits, account risks, troubleshooting, and secure session renewal. If asking for help, describe the error without posting private setup files or credentials.

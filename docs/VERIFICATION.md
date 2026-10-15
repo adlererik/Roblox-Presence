@@ -54,3 +54,5 @@ port/foreign drop-in refusal, monitor-only setup/upgrade and polling after dashb
 startup failure. Browser previews use synthetic accounts/history only.
 
 A resource-limited render of 80,640 synthetic observations (fourteen days at fifteen-second intervals) was also exercised, using the same isolated worker as the dashboard. Resource limits apply before it reads history, and a failed render preserves the prior graph.
+
+Setup regression coverage also preserves an existing mode-0775 shared configuration parent and neighboring app settings while creating private application settings, refuses unsafe settings before key/drop-in writes, and upgrades from a matching partial 0.3.0 preparation without replacing its key or removing its files.

@@ -191,6 +191,36 @@ class DashboardSetupTests(unittest.TestCase):
     setUp = deployment.UpgradeTests.setUp
     tearDown = deployment.UpgradeTests.tearDown
     old_install = deployment.UpgradeTests.old_install
+
+    def test_shared_config_permissions_are_preserved_with_private_app_settings(self):
+        home = self.base/'operator-home'
+        common = home/'.config'
+        common.mkdir(mode=0o775, parents=True)
+        common.chmod(0o775)
+        neighbor = common/'another-application.conf'
+        neighbor.write_text('keep these unrelated settings')
+        url = 'http://127.0.0.1:8765/' + 'c'*64 + '/'
+        setup.write_client(home, url)
+        self.assertEqual(common.stat().st_mode & 0o777, 0o775)
+        self.assertEqual(neighbor.read_text(), 'keep these unrelated settings')
+        self.assertEqual((common/'roblox-presence').stat().st_mode & 0o777, 0o700)
+        self.assertEqual((common/'roblox-presence/dashboard.json').stat().st_mode & 0o777, 0o600)
+        self.assertEqual(load_client(common/'roblox-presence/dashboard.json'), url)
+
+    def test_client_refusal_happens_before_privileged_dashboard_files_are_written(self):
+        self.old_install()
+        home = self.base/'operator-home'
+        common = home/'.config'
+        common.mkdir(parents=True)
+        common.chmod(0o777)
+        identity = SimpleNamespace(pw_uid=os.geteuid(), pw_gid=os.getegid(), pw_dir=str(home))
+        config = load(self.root/'etc/roblox-presence/config.json')
+        prepared = setup.plan(config, root=self.root, identity=identity, check_port=False)
+        with self.assertRaises(ConfigError):
+            setup.apply_files(prepared)
+        self.assertFalse(prepared['key_path'].exists())
+        self.assertFalse(prepared['dropin'].exists())
+        self.assertEqual(common.stat().st_mode & 0o777, 0o777)
     # This class adds setup assertions to the isolated fixture, not a live root deployment.
     def test_dashboard_setup_is_private_and_unit_allowance_is_limited_to_selected_port(self):
         app = self.old_install()
@@ -226,9 +256,30 @@ class DashboardSetupTests(unittest.TestCase):
         self.assertFalse((self.root/'etc/roblox-presence/dashboard_key').exists())
 
     def test_dashboard_upgrade_backs_up_config_and_restarts_only_monitor_with_client_ready(self):
+        self.dashboard_upgrade()
+
+    def test_upgrade_recovers_known_partial_setup_with_shared_config_and_preserves_its_key(self):
+        self.dashboard_upgrade(partial=True)
+
+    def dashboard_upgrade(self, partial=False):
         self.old_install()
         home = self.base/'operator-home'
         home.mkdir(mode=0o700)
+        if partial:
+            common = home/'.config'
+            common.mkdir()
+            common.chmod(0o775)
+            key_path = self.root/'etc/roblox-presence/dashboard_key'
+            key_path.write_text('d'*64+'\n')
+            key_path.chmod(0o600)
+            directory = self.root/'etc/systemd/system/roblox-presence.service.d'
+            directory.mkdir()
+            (directory/'dashboard.conf').write_text(setup.dropin(8765, '10.12.34.56'))
+            orphan = self.root/'opt/roblox-presence/releases/0.3.0'
+            orphan.mkdir()
+            (orphan/'prepared-source.txt').write_text('preserve the unactivated release')
+            pending = self.root/'etc/roblox-presence/config-0.3.0.new'
+            pending.write_text('preserve the earlier prepared config')
         identity = SimpleNamespace(pw_uid=os.geteuid(), pw_gid=os.getegid(), pw_dir=str(home))
         original_plan = setup.plan
         def fixture_plan(*args, **kwargs):
@@ -251,6 +302,12 @@ class DashboardSetupTests(unittest.TestCase):
         self.assertEqual(installed.dashboard_key_file, 'credential:dashboard_key')
         verify.assert_called_once_with(load_client(home/'.config/roblox-presence/dashboard.json'))
         self.assertTrue(list((self.root/'opt/roblox-presence/backups').glob('*/config.json')))
+        if partial:
+            self.assertEqual(key_path.read_text(), 'd'*64+'\n')
+            self.assertEqual(common.stat().st_mode & 0o777, 0o775)
+            self.assertEqual((common/'roblox-presence').stat().st_mode & 0o777, 0o700)
+            self.assertEqual((orphan/'prepared-source.txt').read_text(), 'preserve the unactivated release')
+            self.assertEqual(pending.read_text(), 'preserve the earlier prepared config')
 
 
 class DashboardIsolationTests(Fixture):

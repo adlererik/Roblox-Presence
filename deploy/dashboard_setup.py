@@ -56,7 +56,10 @@ def plan(config, *, user=None, address=None, port=8765, root=Path('/'), identity
     target = directory / 'dashboard.conf'
     if directory.is_symlink() or (directory.exists() and not directory.is_dir()) or target.is_symlink():
         raise ConfigError("Dashboard unit path is unsafe; existing paths were preserved")
-    if target.exists() and (not target.is_file() or target.read_text() != dropin(config.dashboard_port, config.graph_listen_address)):
+    expected_dropins = {dropin(config.dashboard_port, config.graph_listen_address), dropin(port, address)}
+    # A previous attempt may have saved our exact requested drop-in before the
+    # config switch. Reuse that known preparation; preserve all custom content.
+    if target.exists() and (not target.is_file() or target.read_text() not in expected_dropins):
         raise ConfigError("An existing dashboard drop-in needs inspection; it was preserved")
     if check_port and not (config.dashboard_port == port and config.graph_listen_address == address):
         family = socket.AF_INET6 if ':' in address else socket.AF_INET
@@ -73,13 +76,16 @@ def plan(config, *, user=None, address=None, port=8765, root=Path('/'), identity
 def write_client(home, url):
     """Called only after dropping to the operator, so home-path races grant no root access."""
     os.umask(0o077)
-    for directory in (home / '.config', home / '.config/roblox-presence'):
+    for directory, forbidden in ((home / '.config', 0o002),
+                                 (home / '.config/roblox-presence', 0o077)):
         if directory.is_symlink():
             raise ConfigError("Operator client directory must not be a symlink")
         directory.mkdir(mode=0o700, exist_ok=True)
         info = directory.stat()
-        if not directory.is_dir() or info.st_uid != os.geteuid() or info.st_mode & 0o022:
-            raise ConfigError("Operator client directory is not privately owned")
+        # .config is shared with other applications and commonly uses 0775.
+        # Leave its permissions unchanged; only our child directory must be 0700.
+        if not directory.is_dir() or info.st_uid != os.geteuid() or info.st_mode & forbidden:
+            raise ConfigError("Operator settings need a user-owned .config folder (not world-writable) and a private roblox-presence subfolder (0700)")
     path = home / '.config/roblox-presence/dashboard.json'
     if path.exists() or path.is_symlink():
         previous = load_client(path)
@@ -89,7 +95,45 @@ def write_client(home, url):
     save_report(path, json.dumps({'url': url}, indent=2) + '\n')
 
 
+def install_client(prepared):
+    identity = prepared['identity']
+    if os.geteuid() == identity.pw_uid:
+        write_client(prepared['home'], prepared['url'])
+    elif os.geteuid() == 0:
+        read_fd, write_fd = os.pipe()
+        child = os.fork()
+        if child == 0:
+            os.close(read_fd)
+            try:
+                os.setgroups([])
+                os.setgid(identity.pw_gid)
+                os.setuid(identity.pw_uid)
+                write_client(prepared['home'], prepared['url'])
+            except Exception as exc:
+                # Only locally constructed ConfigError messages may cross back;
+                # never return arbitrary paths, secrets or exception strings.
+                message = str(exc) if isinstance(exc, ConfigError) else "Cannot write the operator's private dashboard settings"
+                try:
+                    os.write(write_fd, message.encode()[:1024])
+                except OSError:
+                    pass
+                os._exit(1)
+            os._exit(0)
+        os.close(write_fd)
+        _, status = os.waitpid(child, 0)
+        try:
+            message = os.read(read_fd, 1024).decode(errors='replace')
+        finally:
+            os.close(read_fd)
+        if status:
+            raise ConfigError(message or "Could not save operator client settings; preserve prepared files for inspection")
+    else:
+        raise ConfigError("Only the operator or administrator can write this client setup")
+
+
 def apply_files(prepared):
+    # Complete the user-owned step before writing privileged dashboard files.
+    install_client(prepared)
     path = prepared['key_path']
     if not path.exists():
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -100,25 +144,6 @@ def apply_files(prepared):
     target.parent.chmod(0o755)
     save_report(target, dropin(prepared['port'], prepared['address']))
     target.chmod(0o644)
-    identity = prepared['identity']
-    if os.geteuid() == identity.pw_uid:
-        write_client(prepared['home'], prepared['url'])
-    elif os.geteuid() == 0:
-        child = os.fork()
-        if child == 0:
-            try:
-                os.setgroups([])
-                os.setgid(identity.pw_gid)
-                os.setuid(identity.pw_uid)
-                write_client(prepared['home'], prepared['url'])
-            except Exception:
-                os._exit(1)
-            os._exit(0)
-        _, status = os.waitpid(child, 0)
-        if status:
-            raise ConfigError("Could not save operator client settings. Existing monitor files were preserved for inspection")
-    else:
-        raise ConfigError("Only the operator or administrator can write this client setup")
 
 
 def updated_config(obj, prepared):

@@ -234,7 +234,7 @@ On the server, obtain the new release in a **new source directory**, then run it
 tests. For example, start in a new empty folder and use:
 
 ```bash
-git clone --branch v0.3.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.3.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 -m unittest discover -v
 sudo python3 deploy/upgrade.py

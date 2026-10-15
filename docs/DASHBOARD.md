@@ -63,7 +63,7 @@ New users first complete the [installation and account checks](GETTING_STARTED.m
 Existing installations can combine upgrade and dashboard setup in the
 [upgrade guide](ACTIVITY.md#updating-an-existing-systemd-installation).
 
-For an installed, running **0.3.0 or later** systemd monitor, enter its downloaded
+For an installed, running **0.3.1 or later** systemd monitor, enter its downloaded
 source directory in the server terminal. Preview the dashboard setup:
 
 ```bash
@@ -99,6 +99,20 @@ global sudo rule is changed. This does not grant passwordless administrator acce
 Installation, upgrades and account credential renewal still need the administrator.
 If setup fails, preserve the files and ask for inspection of this monitor; do not
 rerun first installation or delete state.
+
+## If 0.3.0 stopped while saving operator settings
+
+Version 0.3.0 could reject a user-owned `.config` folder with mode 0775, even
+though the monitor's own settings can remain private inside it. Version 0.3.1
+accepts that shared parent without changing its permissions, creates only the
+application's mode-0700 subfolder, and keeps the client file mode 0600.
+
+Use the [guarded upgrade to the new release](ACTIVITY.md#updating-an-existing-systemd-installation)
+from its newly downloaded source. It preserves the protected key left by the
+previous preparation and accepts only an exact generated drop-in matching the
+configured or requested address/port. Custom or conflicting files still require
+inspection. Earlier prepared files remain available; do not delete the state,
+key or old source to make a retry work. The first-install script is not a repair.
 
 ## Privacy and access
 
