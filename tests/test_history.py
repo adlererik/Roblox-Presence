@@ -141,9 +141,10 @@ class HistoryTests(Fixture):
         path.write_text(json.dumps(config))
         output = self.root / "report.html"
         before = state.db.execute("SELECT COUNT(*) FROM history").fetchone()[0]
-        with patch.dict(os.environ, TZ="Europe/Paris"), contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(main(["graph", "--config", str(path), "--output", str(output)]), 0)
+        with patch.dict(os.environ, TZ="Europe/Paris"), contextlib.redirect_stdout(io.StringIO()) as console:
+            self.assertEqual(main(["graph", "--file-only", "--config", str(path), "--output", str(output)]), 0)
         text = output.read_text()
+        self.assertIn(output.resolve().as_uri(), console.getvalue())
         self.assertIn("Example Player", text)
         self.assertIn("Server time:", text)
         self.assertIn("Europe/Paris", text)

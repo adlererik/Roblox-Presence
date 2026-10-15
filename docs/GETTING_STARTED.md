@@ -35,7 +35,7 @@ Copy one command at a time:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.2.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.2.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py
@@ -46,7 +46,7 @@ Git's "detached HEAD" message is normal when selecting a release tag. It does no
 
 **Expected:** Python is at least 3.11, preflight includes `"supported": true`, and tests finish with `OK`. For step 8, preflight must also include `"systemd_install_supported": true`. Keep preflight output private because it includes server inventory. If prerequisites are missing, ask the administrator to provide them; do not upgrade a production server as a workaround.
 
-If the project directory already exists, inspect that copy instead of repeating the clone. As an alternative, the release page has `roblox-presence-0.2.0.tar.gz` and its `.sha256` file. Download both onto the server, run `sha256sum -c roblox-presence-0.2.0.tar.gz.sha256`, extract the archive with `tar -xzf roblox-presence-0.2.0.tar.gz`, and enter the extracted `roblox-presence` directory.
+If the project directory already exists, inspect that copy instead of repeating the clone. As an alternative, the release page has `roblox-presence-0.2.1.tar.gz` and its `.sha256` file. Download both onto the server, run `sha256sum -c roblox-presence-0.2.1.tar.gz.sha256`, extract the archive with `tar -xzf roblox-presence-0.2.1.tar.gz`, and enter the extracted `roblox-presence` directory.
 
 ## 3. Choose the two Roblox accounts
 
@@ -145,6 +145,32 @@ sudo python3 -B -m roblox_presence --config /etc/roblox-presence/config.json sta
 **Expected:** `"healthy": true`. Running alone is not proof of working account access. If health is unavailable immediately after startup, allow the first checks to finish and repeat the health command; do not repeat installation over the existing files.
 
 The server now owns continuous operation and starts the monitor at boot. Your laptop and SSH session can close. Roblox session expiry, outages, visibility changes, and phone delivery settings can still interrupt alerts. Keep the private setup files for [secure credential renewal](../README.md#replace-an-expired-cookie-after-systemd-installation).
+
+## 9. Open the activity graph on your phone or computer
+
+In the server terminal, run:
+
+```bash
+sudo robox graph --listen SERVER_PRIVATE_ADDRESS
+```
+
+Replace `SERVER_PRIVATE_ADDRESS` with the server's own private numeric IP — the
+address you use for SSH at home. Keep your phone or computer on the same trusted
+home network, or use your existing private VPN/SSH connection.
+
+**Expected:** `Open graph (temporary browser link):` and an `http://` address.
+Click that whole address, or copy it into your browser's address bar. Keep the
+terminal open while viewing. The link closes after ten minutes or when you press
+**Ctrl+C**; the monitor continues running. The report is a snapshot, so repeat the
+command to see newer activity. Fourteen days fill gradually as the monitor runs.
+
+This link contains a secret random path. Keep it private. HTTP does not encrypt
+traffic; use your trusted private network and never forward the port publicly.
+The viewer leaves existing websites, proxy and firewall settings alone. If an
+existing firewall blocks the link, use your established SSH forwarding or download
+the saved report instead. The [activity guide](ACTIVITY.md) explains those options,
+how to save the address for `sudo robox graph`, and every command available through
+`robox --help`.
 
 ## Stop or troubleshoot
 

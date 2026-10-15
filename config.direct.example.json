@@ -13,5 +13,6 @@
   "timeout_seconds": 8,
   "alert_ttl_seconds": 300,
   "outage_alert_seconds": 300,
-  "notify_on_startup": true
+  "notify_on_startup": true,
+  "graph_listen_address": "127.0.0.1"
 }

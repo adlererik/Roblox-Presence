@@ -21,7 +21,7 @@ sys.path.insert(0, str(SOURCE))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from install import command_links, source_files
 from roblox_presence import __version__
-from roblox_presence.config import ConfigError, load
+from roblox_presence.config import ConfigError, listen_address, load
 from roblox_presence.state import read_health, preserve_sqlite_owner
 
 UNIT = "roblox-presence.service"
@@ -76,11 +76,13 @@ def prepare(source=SOURCE, root=Path("/"), apply=False):
     return target
 
 
-def apply_upgrade(graph=False, *, root=Path("/")):
+def apply_upgrade(graph=False, *, root=Path("/"), graph_listen=None):
     if root == Path("/") and (os.geteuid() != 0 or not Path("/run/systemd/system").is_dir()):
         raise ConfigError("Apply from a root terminal on the systemd server hosting this monitor")
     os.umask(0o077)
     config = load(root / "etc/roblox-presence/config.json")
+    if graph_listen is not None:
+        graph_listen = listen_address(graph_listen)
     if config.state_dir != root / "var/lib/roblox-presence":
         raise ConfigError("Unexpected state path; inspect this installation before updating")
     prepare(root=root)  # All collision / source checks before touching the running monitor.
@@ -96,6 +98,20 @@ def apply_upgrade(graph=False, *, root=Path("/")):
     backup_folder = app / "backups" / ("before-" + __version__ + "-" + str(time.time_ns()))
     backup_folder.mkdir(mode=0o700, parents=True)
     (app / "backups").chmod(0o700)
+    config_path = root / "etc/roblox-presence/config.json"
+    prepared_config = None
+    if graph_listen is not None:
+        original_config = config_path.read_bytes()
+        updated_config = json.loads(original_config)
+        updated_config["graph_listen_address"] = graph_listen
+        prepared_config = config_path.with_name("config-" + __version__ + ".new")
+        fd = os.open(prepared_config, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            stream.write(json.dumps(updated_config, indent=2) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        (backup_folder / "config.json").write_bytes(original_config)
+        (backup_folder / "config.json").chmod(0o600)
     systemctl("stop", UNIT)
     changed = False
     try:
@@ -120,6 +136,8 @@ def apply_upgrade(graph=False, *, root=Path("/")):
         temporary.symlink_to("releases/" + __version__)
         temporary.replace(current)
         changed = True
+        if prepared_config is not None:
+            prepared_config.replace(config_path)
         command_links(root, apply=True)
         started = time.time()
         systemctl("start", UNIT)
@@ -137,6 +155,8 @@ def apply_upgrade(graph=False, *, root=Path("/")):
             raise ConfigError("Updated monitor has not passed health checks; preserve the backup and ask for inspection")
     except Exception:
         if not changed:
+            if prepared_config is not None:
+                prepared_config.unlink(missing_ok=True)
             systemctl("start", UNIT)  # Old code and DB untouched if switch never happened.
         # After activation, don't restore an old database automatically: that could
         # erase new observations and acknowledgements or replay accepted notifications.
@@ -150,6 +170,9 @@ def apply_upgrade(graph=False, *, root=Path("/")):
         now = time.time()
         zone, label = server_zone()
         result["graph_file"] = str(export_report(render(snapshot(config, now, zone), now, zone, label, config.poll_seconds)))
+        from roblox_presence.viewer import file_link
+        result["graph_file_url"] = file_link(Path(result["graph_file"]))
+        result["open_in_phone_browser"] = "Run sudo robox graph for a temporary browser link"
     print(json.dumps(result, indent=2))
     if not unchanged:
         raise ConfigError("A production service changed during the update; inspect its status before proceeding")
@@ -160,10 +183,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Back up state, switch code and restart this monitor only")
     parser.add_argument("--graph", action="store_true", help="Also save a private HTML graph in the sudo caller's home")
+    parser.add_argument("--graph-listen", help="Save this specific private server IP for phone/computer graph links")
     args = parser.parse_args()
     try:
         if args.apply:
-            return apply_upgrade(args.graph)
+            return apply_upgrade(args.graph, graph_listen=args.graph_listen)
+        if args.graph_listen is not None:
+            listen_address(args.graph_listen)
         prepare()
         print("Update can be prepared for " + __version__ + ". Dry run: no files or services changed.")
         return 0

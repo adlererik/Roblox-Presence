@@ -51,12 +51,12 @@ Monitoring outages produce an alert after the configured threshold at the next f
 
 The optional systemd deployment reserves these paths:
 
-- `/opt/roblox-presence/releases/0.2.0` and its `current` symlink: source code.
+- `/opt/roblox-presence/releases/0.2.1` and its `current` symlink: source code.
 - `/etc/roblox-presence`: root-only configuration and credential sources.
 - `/var/lib/roblox-presence`: systemd-managed persistent state.
 - `/etc/systemd/system/roblox-presence.service`: this service's unit.
 
-The systemd example has a dynamic unprivileged identity, read-only system/home access, private temporary/device access, no capabilities, no explicit socket binds, a 5% CPU quota, a 128 MiB memory limit, and at most 16 tasks. Other supervisors need their own equivalent isolation configuration. The runtime makes outbound TLS requests only, without inheriting proxy settings. HTTPS redirects are refused so credentials cannot be forwarded to an unexpected host. Roblox URLs are fixed; ntfy's HTTPS origin is configurable.
+The systemd example has a dynamic unprivileged identity, read-only system/home access, private temporary/device access, no capabilities, no explicit socket binds, a 5% CPU quota, a 128 MiB memory limit, and at most 16 tasks. Other supervisors need their own equivalent isolation configuration. The supervised monitoring worker makes outbound TLS requests only, without inheriting proxy settings. HTTPS redirects are refused so credentials cannot be forwarded to an unexpected host. Roblox URLs are fixed; ntfy's HTTPS origin is configurable.
 
 Systemd `LoadCredential` exposes the cookie and topic through restricted credential files. Foreground/OpenRC deployment can instead use absolute paths to protected files accessible only to the dedicated runtime account. Configuration stores references, not secret values. Reloading root credential source files does not update an already-running systemd credential snapshot: restart only this monitor after rotation. Session lifetime depends on Roblox; the monitor cannot guarantee a login will remain valid indefinitely.
 
@@ -84,3 +84,30 @@ HTML is self-contained, uses escaped and bounded API text, contains no credentia
 The installer reserves `/usr/local/bin/roblox` and `/usr/local/bin/robox` as links to its launchers, refusing unrelated command collisions. Upgrade leaves the service unit and credential files unchanged, takes a private SQLite backup while this monitor is stopped, switches its release link, and starts only this unit. After activation it never automatically restores an old database, which could erase new acknowledgements and replay notifications. Preserve state/backups and inspect a failed upgrade.
 
 Root report/backup operations preserve ownership of any SQLite WAL sidecars so diagnostics cannot lock the unprivileged worker out of its state. Report queries remain read-only SQL.
+
+## Temporary browser links
+
+`graph` now starts an independent, temporary single-report HTTP viewer after
+saving its private HTML. `--file-only` starts no viewer and prints a valid escaped
+file URI. No change to the monitoring unit or its bind prohibition is required.
+The viewer defaults to loopback; `graph_listen_address` or `--listen` must select
+a specific RFC1918 IPv4 or IPv6 unique-local address for other devices. Public,
+all-interface, scoped and hostname binds are refused. No address is autodetected
+or published, and the application does not change firewall/proxy/network setup.
+
+A fresh 256-bit random path grants access to one in-memory snapshot for ten
+minutes by default (maximum sixty). No directory/file lookup or access logging is
+performed. Only GET/HEAD at the exact token path with an allowed Host succeeds;
+other paths, expired tokens, foreign hosts and write requests disclose no report.
+Responses prohibit caching, referrers and framing. The existing HTML CSP still
+applies. A single request is processed at a time with socket timeouts, bounded
+request churn and lower process priority. Expiry or Ctrl+C closes the socket.
+
+A root graph invocation drops supplementary groups, GID and UID to the original
+sudo caller before binding. Root-only terminals must use `--file-only` or invoke
+through a regular user's sudo session. The viewer never loads session cookies or
+notification secrets. HTTP is not encryption: non-loopback links are for trusted
+private networks or an existing encrypted SSH/VPN path, not public hosting.
+Closing a viewer leaves monitoring, its database and its saved report intact.
+The optional upgrade `--graph-listen` backs up and atomically updates only this
+monitor's configuration before restarting its unit with the new source.

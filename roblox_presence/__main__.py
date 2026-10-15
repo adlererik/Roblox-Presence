@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 
-from .config import ConfigError, load, secret
+from .config import ConfigError, listen_address, load, secret
 from .http import Http, ServiceError
 from .monitor import run
 from .push import Push
@@ -38,11 +38,15 @@ def main(argv=None):
                     "check": "Check Roblox once and verify the observing account", "status": "Show the running monitor's health",
                     "run": "Run continuously in this terminal (usually handled by the service)",
                     "subscription": "Show your private ntfy subscription address; keep it secret",
-                    "test-push": "Send a test notification to your phone", "graph": "Create a private 14-day activity graph to open in a browser"}
+                    "test-push": "Send a test notification to your phone", "graph": "Create a private 14-day graph and a temporary clickable browser link"}
     for name, description in descriptions.items():
         command = commands.add_parser(name, help=description, description=description)
         if name == "graph":
             command.add_argument("--output", help="HTML file (default: roblox-presence.html in your home folder)")
+            command.add_argument("--file-only", action="store_true", help="Save and link the HTML file without starting a viewer")
+            command.add_argument("--listen", help="This server's private LAN IP for phone/computer viewing; default: config or loopback")
+            command.add_argument("--port", type=int, default=0, help="Viewer port; default: choose a free port")
+            command.add_argument("--minutes", type=int, default=10, help="Link lifetime, 1–60 minutes (default: 10); keep the terminal open")
     resolve = commands.add_parser("resolve", help="Resolve a Roblox username using the public API")
     resolve.add_argument("username")
     init = commands.add_parser("init", help="Create local configuration and a random ntfy topic")
@@ -50,6 +54,7 @@ def main(argv=None):
     init.add_argument("--observer-id", required=True, type=int)
     init.add_argument("--target-id", required=True, type=int)
     init.add_argument("--without-cookie", action="store_true", help="Prepare files without asking for a session yet")
+    init.add_argument("--graph-listen", default="127.0.0.1", help="Optional private server IP for clickable graph links on your home network")
     credential = commands.add_parser("set-cookie", help="Enter your own Roblox session value without echo")
     # Both --config FILE graph and graph --config FILE are accepted.
     for command in commands.choices.values():
@@ -66,6 +71,7 @@ def main(argv=None):
         if args.command == "init":
             if args.observer_id <= 0 or args.target_id <= 0 or args.observer_id == args.target_id:
                 raise ConfigError("Provide distinct, positive Roblox account IDs")
+            graph_address = listen_address(args.graph_listen)
             directory = Path(args.directory).resolve()
             directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             config_path = directory / "config.json"
@@ -75,7 +81,8 @@ def main(argv=None):
                    "cookie_file": str(directory / "roblox_cookie"), "state_dir": str(directory / "state"),
                    "push": {"provider": "ntfy", "base_url": "https://ntfy.sh",
                             "topic_file": str(directory / "ntfy_topic")},
-                   "poll_seconds": 15, "offline_confirmations": 2, "notify_on_startup": True}
+                   "poll_seconds": 15, "offline_confirmations": 2, "notify_on_startup": True,
+                   "graph_listen_address": graph_address}
             write_secret(directory / "ntfy_topic", "rp-" + secrets.token_hex(24))
             config_path.write_text(json.dumps(obj, indent=2) + "\n")
             if not args.without_cookie:
@@ -121,11 +128,19 @@ def main(argv=None):
             return 0 if data["healthy"] else 1
         elif args.command == "graph":
             from .report import export_report, render, server_zone, snapshot
+            from .viewer import print_file_link, serve, validate_options
+            address = listen_address(args.listen or config.graph_listen_address)
+            validate_options(args.port, args.minutes * 60)
             now = time.time()
             zone, label = server_zone()
             data = snapshot(config, now, zone)
-            output = export_report(render(data, now, zone, label, config.poll_seconds), args.output)
-            print(f"Graph saved: {output}\nOpen this HTML file in a browser. Times use {label} on the server.\nThis is a private snapshot; run graph again to refresh it. Past activity before recording began is unavailable.")
+            content = render(data, now, zone, label, config.poll_seconds)
+            output = export_report(content, args.output)
+            print(f"Graph saved: {output}\nTimes use {label} on the server. This is a private snapshot; run graph again to refresh it.")
+            if args.file_only:
+                print_file_link(output)
+            else:
+                serve(content, address, args.port, args.minutes)
         elif args.command == "run":
             run(config)
         return 0

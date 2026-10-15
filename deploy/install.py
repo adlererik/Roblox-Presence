@@ -106,7 +106,8 @@ def install(source, config, root=Path("/"), apply=False):
                     "topic_file": "credential:ntfy_topic"},
            "poll_seconds": config.poll_seconds, "offline_confirmations": config.offline_confirmations,
            "timeout_seconds": config.timeout_seconds, "alert_ttl_seconds": config.alert_ttl_seconds,
-           "outage_alert_seconds": config.outage_alert_seconds, "notify_on_startup": config.notify_on_startup}
+           "outage_alert_seconds": config.outage_alert_seconds, "notify_on_startup": config.notify_on_startup,
+           "graph_listen_address": config.graph_listen_address}
     content = (source / "deploy/roblox-presence.service").read_text()
     if config.push_token_file:
         obj["push"]["token_file"] = "credential:ntfy_token"

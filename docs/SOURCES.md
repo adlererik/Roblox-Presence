@@ -26,3 +26,5 @@ Use the host's native service-manager tools to validate a deployment example. AP
 
 - [Roblox presence response schema](https://prod.docsiteassets.roblox.com/assets/en-us/cloud/legacy/presence/v1.json): current presence type and nullable `lastLocation`; no login/logout history endpoint.
 - [Roblox public user profile schema](https://prod.docsiteassets.roblox.com/assets/en-us/cloud/legacy/users/v1.json): target ID, username and display name.
+
+- [Python http.server](https://docs.python.org/3/library/http.server.html) and [socketserver](https://docs.python.org/3/library/socketserver.html): handler, socket timeout and server lifecycle APIs for the restricted temporary viewer. This is not a public production web server.

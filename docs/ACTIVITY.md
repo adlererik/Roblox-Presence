@@ -4,56 +4,122 @@ The monitor has to run on your always-on server. Your phone or computer opens a
 report file when you want to look at it. Turning off the viewing device does not
 stop the server recording new activity.
 
-## Create a graph — in your server’s SSH terminal
+## Create and open a clickable graph link
 
-After installing version 0.2.0 or later with the systemd installer, type:
+After installing version **0.2.1 or later**, run this in your server’s SSH terminal:
+
+```bash
+sudo robox graph --listen SERVER_PRIVATE_ADDRESS
+```
+
+Replace `SERVER_PRIVATE_ADDRESS` with your server’s private numeric IP address —
+the address you use to connect from your home network. Do not paste the CAPITALS
+unchanged. Your phone/computer must be on the same trusted network, or connected
+through your existing private VPN. Public addresses and all-interface listeners
+are refused. Nothing changes your server’s websites, proxy or firewall.
+
+Enter your sudo password if asked. The command saves your HTML file and prints
+**Open graph (temporary browser link):** followed by an `http://` URL. **Click that
+whole URL** to open the graph in your phone’s or computer’s browser. If your
+terminal does not make URLs clickable, copy the whole URL and paste it into your
+browser’s address bar.
+
+Keep the terminal open while you view the report. The link closes automatically
+after **ten minutes**. Press **Ctrl+C** to close it sooner. This closes the viewer;
+the always-on monitor keeps running and recording. Once the page is loaded, its
+date filtering works inside your browser. Generate a fresh graph for new activity.
+
+The link’s random path is a secret: anyone who has it and can reach that private
+address can view this snapshot until expiry. The temporary viewer serves only this
+report, never a directory, cookie, configuration or database. It runs without root
+privileges. **HTTP does not encrypt network traffic**; use a trusted home network
+or an existing encrypted SSH/VPN connection. Do not forward the viewer’s port to
+the public internet or publish its URL.
+
+### Make the short command work next time
+
+If your setup or upgrade saved `graph_listen_address`, just use:
 
 ```bash
 sudo robox graph
 ```
 
-Enter your server’s sudo password if asked. The password is not shown as you type.
-The command prints **Graph saved:** followed by the full filename. It normally
-saves `roblox-presence.html` in your home folder, owned by you and readable only by
-you. You can run it again at any time to replace that snapshot with a fresh one.
-The running monitor keeps recording while the graph is made. No server restart
-or Roblox login is required to generate it.
+An administrator can save the address during first setup with
+`./robox init --graph-listen SERVER_PRIVATE_ADDRESS` alongside the usual account
+ID options. When upgrading, use
+`sudo python3 deploy/upgrade.py --apply --graph-listen SERVER_PRIVATE_ADDRESS`.
+The upgrade backs up configuration and preserves the other settings. A one-off
+`graph --listen` overrides the address for that report without editing setup.
 
+Without a saved address, `graph` uses `127.0.0.1`: its link opens on the computer
+running the command, or through an SSH tunnel. **A loopback link generated on a
+server does not open directly on your phone.** Use the private server IP as shown
+above for phone viewing on your home network.
+
+Optional settings:
+
+```bash
+sudo robox graph --listen SERVER_PRIVATE_ADDRESS --minutes 30
+sudo robox graph --listen SERVER_PRIVATE_ADDRESS --port 8765
+```
+
+The lifetime can be 1–60 minutes. Normally the program chooses a free port. If you
+choose one that is occupied, it refuses rather than touching the application
+already using it. If an existing firewall blocks the chosen port, the program
+leaves that firewall unchanged; use your established SSH/VPN access instead.
+
+For existing SSH forwarding, generate a loopback link on the server, then forward
+its port from the viewing computer in a second terminal:
+
+```bash
+ssh -N -L LOCAL_PORT:127.0.0.1:REPORT_PORT SERVER_USERNAME@SERVER_ADDRESS
+```
+
+Replace every CAPITALIZED value, using the port in the printed report URL as
+`REPORT_PORT` and a free local port as `LOCAL_PORT`. Open the printed URL on the
+viewing computer with its port changed to `LOCAL_PORT`; keep the secret path
+exactly the same. Phone SSH clients need their corresponding local-forwarding
+feature. This uses existing SSH access and needs no public web service.
+
+## Save a file only, without a viewer
+
+```bash
+sudo robox graph --file-only
+```
+
+The command prints the full filename and an **Open saved graph** `file://` link.
+The URL escapes spaces and other filename characters. Click it in a supporting
+terminal or paste it into a browser **on the computer holding the file**. A server
+file URL refers to the server’s disk; it does not copy the report to your phone.
+
+The default file is `roblox-presence.html` in your home folder, owned by you and
+readable only by you. Run the command again to replace it with a fresh snapshot.
 To choose another file in a folder you own:
 
 ```bash
-sudo robox graph --output "$HOME/activity.html"
+sudo robox graph --file-only --output "$HOME/activity.html"
 ```
 
-Do not use a shared folder such as `/tmp`, upload the report to public hosting, or
-commit it to GitHub. The report contains personal activity times. It never
-contains your cookie, password, notification topic, or account’s numeric ID.
-
-If `robox` is not in your command search path, use
-`sudo /opt/roblox-presence/current/robox graph`. Source or non-systemd deployments
-can run `./robox --config /absolute/path/private/config.json graph` from the source
-folder, as the account permitted to read that monitor’s state. Help works without
-configuration or administrator access.
-
-## Open the file — on the device where you want to see it
-
-The command creates a normal HTML file. Download it from your server with your
-existing SSH/SFTP client, then open it with a web browser. On a computer you can
-usually double-click it in Downloads. On a phone, download it through your trusted
-server file-transfer app, then choose **Open with** and your browser.
-
-For someone using a computer terminal, this is a file-copy example. Run it on
-**your viewing computer**, outside the server SSH session:
+To view a server file elsewhere, download it with your existing SSH/SFTP client,
+then open the downloaded HTML in your browser. On a computer you can usually
+double-click it in Downloads. On a phone, use your trusted server file-transfer
+app and choose **Open with** your browser. A computer-terminal example, run on the
+**viewing computer** outside the server SSH session, is:
 
 ```bash
 scp SERVER_USERNAME@SERVER_ADDRESS:roblox-presence.html "$HOME/Downloads/roblox-presence.html"
 ```
 
-Replace both CAPITALIZED words with your own SSH connection details. Use your
-existing SSH key/options if your server needs them. Do not change the server’s SSH,
-firewall or web applications. Open the file that was copied into Downloads.
-The HTML works offline and does not send its contents anywhere. It is a snapshot,
-not a live web page: generate and download it again to see newer activity.
+Replace both CAPITALIZED words and use your existing SSH options/key if needed.
+The downloaded report works offline. Keep it out of public hosting and GitHub;
+it contains personal activity times. It has no cookie, notification topic, or
+numeric account ID. Downloaded copies remain until you remove them.
+
+If `robox` is outside your command search path, use
+`sudo /opt/roblox-presence/current/robox graph`. Source and non-systemd setups can
+use `./robox --config /absolute/path/private/config.json graph` from the source
+folder as the account permitted to read state. Help needs no configuration or
+administrator access.
 
 ## Read the graph
 
@@ -113,7 +179,9 @@ read protected setup/state require `sudo`; help does not.
 | --- | --- |
 | `robox --help` or `robox help` | Show all program commands. |
 | `robox --version` | Show the installed version. |
-| `sudo robox graph` | Make or refresh the private fourteen-day HTML graph. |
+| `sudo robox graph` | Save the private graph and print a temporary browser link; keep the terminal open. |
+| `sudo robox graph --listen SERVER_PRIVATE_ADDRESS` | Open from a phone/computer on that private network. |
+| `sudo robox graph --file-only` | Save and link the HTML file without a viewer. |
 | `sudo robox status` | Show whether checks and notification delivery are healthy. |
 | `sudo robox validate` | Check configuration structure without testing credentials or the network. |
 | `robox check` | Check current Roblox status and verify the observing account; use a protected direct-file setup config as explained below. |
@@ -174,7 +242,7 @@ On the server, obtain the new release in a **new source directory**, then run it
 tests. For example, start in a new empty folder and use:
 
 ```bash
-git clone --branch v0.2.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.2.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 -m unittest discover -v
 sudo python3 deploy/upgrade.py
@@ -184,8 +252,10 @@ The last command is a dry run: it changes nothing. If it reports that the update
 can be prepared, apply it:
 
 ```bash
-sudo python3 deploy/upgrade.py --apply --graph
+sudo python3 deploy/upgrade.py --apply --graph --graph-listen SERVER_PRIVATE_ADDRESS
 ```
+
+Replace `SERVER_PRIVATE_ADDRESS` with the server’s own private numeric IP if you want phone/computer links on your home network. Omit `--graph-listen` to preserve the current address setting (loopback if unset).
 
 This saves a private consistent database backup, preserves account credentials,
 the topic and service configuration, installs the command shortcuts, and restarts
@@ -199,8 +269,9 @@ robox --help
 sudo robox graph
 ```
 
-History starts after the upgrade. The fifteen-day history appears gradually;
-there is no earlier log to import from version 0.1.0. Keep real online visibility
+Version 0.2.0 introduced recording; 0.2.1 preserves that history. For a first
+upgrade from 0.1.0, history starts afterwards and fills gradually; there is no
+earlier log to import from 0.1.0. Keep real online visibility
 and phone-delivery checks in your acceptance process. A passing offline check is
 not proof of online visibility.
 

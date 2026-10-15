@@ -4,11 +4,11 @@ Receive a phone notification when a Roblox connection comes online, then open Ro
 
 This is an independent project, without Roblox endorsement or approval. It needs your own Roblox account's session credential. It does not need the other person's password or session.
 
-**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.2.0](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.2.0) is an initial preview; complete the real online-status and phone-delivery checks before relying on it.
+**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.2.1](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.2.1) is a preview; complete the real online-status and phone-delivery checks before relying on it.
 
 The settings are your own: choose the two accounts, your Linux server, and your notification client. No particular relationship, hardware brand, hostname, or Linux distribution is required. The automated service installer uses systemd; [OpenRC and other supervisors](docs/DEPLOYMENT.md) have separate instructions.
 
-## New in 0.2.0: activity graph and easy commands
+## Activity graph and clickable browser links
 
 Generate a private, interactive **14-day graph** on your server. Each day has a timeline: green means online, pale gray means offline, and stripes mean the monitor could not check. Select a date to see the detected login/logout times, with seconds, below the graph. Times use **the server’s configured timezone**, including daylight saving changes, even if you open the file somewhere else.
 
@@ -19,13 +19,25 @@ robox --help
 sudo robox graph
 ```
 
-`roblox` is also accepted. The graph command saves `roblox-presence.html` in your home folder. Download that file from the server and open it in a browser. It is a snapshot: run the command again to refresh it. It works without an internet connection once downloaded, uses no external scripts/fonts, and opens no server port. [How to create and open the graph, with a complete command guide](docs/ACTIVITY.md).
+`roblox` is also accepted. In **0.2.1**, `graph` prints a temporary clickable **Open graph** browser URL and saves `roblox-presence.html` in your home folder. Keep the viewing terminal open; the link closes after ten minutes or when you press Ctrl+C. Monitoring continues independently.
 
-**Recording starts when the updated monitor runs.** Roblox supplies current presence, not an account login log. The displayed times are when the monitor detected changes, usually checked every 15 seconds. Older activity cannot be recovered, and gaps remain marked unknown. The report shows fourteen local calendar dates, including today; local storage retains fifteen days of checks to cover timezone and clock-change boundaries.
+To open the link on a phone or another computer on your home network, replace `SERVER_PRIVATE_ADDRESS` with your server’s private numeric IP:
+
+```bash
+sudo robox graph --listen SERVER_PRIVATE_ADDRESS
+```
+
+You can save that address during setup with `init --graph-listen`, or during an upgrade with `deploy/upgrade.py --apply --graph-listen`; then plain `sudo robox graph` uses it. The default is loopback for viewing on the same computer or through SSH forwarding. A server `file://` link refers to the server’s disk, not your phone.
+
+Each browser link has a random secret path and expires automatically. The viewer serves only that report from memory, drops root privileges before listening, and never serves a directory or credentials. It uses HTTP on a specific private address: the token limits access but does not encrypt traffic, so use a trusted home network or an existing private SSH/VPN connection. It does not change firewall, proxy or website settings.
+
+For a saved file only, use `sudo robox graph --file-only`. That returns a properly escaped `file://` link and opens no listener. Download the HTML first if viewing it on another device. The snapshot works offline once downloaded and uses no external scripts/fonts. [Plain-language browser-link, file and command guide](docs/ACTIVITY.md).
+
+**Recording starts when version 0.2.0 or later first runs; updates preserve collected history.** Roblox supplies current presence, not an account login log. The displayed times are when the monitor detected changes, usually checked every 15 seconds. Older activity cannot be recovered, and gaps remain marked unknown. The report shows fourteen local calendar dates, including today; local storage retains fifteen days of checks to cover timezone and clock-change boundaries.
 
 Online alerts now name the player and their game when Roblox shares it. If the player first appears online without a game, the message says so. One follow-up names the first visible game; subsequent game changes remain silent. Private or missing game information is shown as unavailable. The push provider receives these names and times; keep your topic and reports private.
 
-**Already installed 0.1.0?** Follow the [upgrade instructions](docs/ACTIVITY.md#updating-an-existing-systemd-installation). The guarded update backs up the database and restarts this monitor only. It preserves your credentials, notification topic, service settings, and alert state.
+**Already installed an older version?** Follow the [upgrade instructions](docs/ACTIVITY.md#updating-an-existing-systemd-installation). The guarded update backs up the database and restarts this monitor only. It preserves your credentials, notification topic, service settings, and alert state.
 
 ## Can this get my Roblox account banned?
 
@@ -114,7 +126,7 @@ Use a new directory dedicated to this project. For a fresh setup:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.2.0 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.2.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py

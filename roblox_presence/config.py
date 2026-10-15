@@ -1,6 +1,7 @@
 """Strict configuration and file-based credentials. No secrets in CLI arguments."""
 
 import json
+import ipaddress
 import os
 import re
 import stat
@@ -12,6 +13,24 @@ from urllib.parse import urlsplit
 
 class ConfigError(Exception):
     pass
+
+
+def listen_address(value):
+    try:
+        address = ipaddress.ip_address(value) if isinstance(value, str) else None
+    except ValueError:
+        address = None
+    if address is None:
+        raise ConfigError("Graph listen address must be a numeric loopback or private-network address")
+    if getattr(address, "scope_id", None) is not None:
+        raise ConfigError("Graph listen address must not include an interface scope")
+    private = any(address in network for network in
+                  (ipaddress.ip_network("10.0.0.0/8"), ipaddress.ip_network("172.16.0.0/12"),
+                   ipaddress.ip_network("192.168.0.0/16"), ipaddress.ip_network("fc00::/7"))
+                  if address.version == network.version)
+    if not (address.is_loopback or private):
+        raise ConfigError("Choose a specific loopback or private LAN address; public/all-interface listeners are refused")
+    return str(address)
 
 
 def systemd_acl_private(fd, info):
@@ -126,6 +145,7 @@ class Config:
     alert_ttl_seconds: int = 300
     outage_alert_seconds: int = 300
     notify_on_startup: bool = True
+    graph_listen_address: str = "127.0.0.1"
 
     @property
     def scope(self):
@@ -150,7 +170,7 @@ def load(path: str | Path) -> Config:
         raise ConfigError("Cannot read valid JSON configuration") from None
     keys(obj, {"observer_user_id", "target_user_id", "cookie_file", "push", "state_dir",
                "poll_seconds", "offline_confirmations", "timeout_seconds", "alert_ttl_seconds",
-               "outage_alert_seconds", "notify_on_startup"}, "configuration")
+               "outage_alert_seconds", "notify_on_startup", "graph_listen_address"}, "configuration")
     push = obj.get("push")
     keys(push, {"provider", "base_url", "topic_file", "token_file", "user_file"}, "push")
     provider = push.get("provider", "ntfy")
@@ -186,4 +206,4 @@ def load(path: str | Path) -> Config:
                   integer(obj.get("timeout_seconds", 8), "timeout_seconds", 1, 30),
                   integer(obj.get("alert_ttl_seconds", 300), "alert_ttl_seconds", 30, 3600),
                   integer(obj.get("outage_alert_seconds", 300), "outage_alert_seconds", 60, 3600),
-                  startup)
+                  startup, listen_address(obj.get("graph_listen_address", "127.0.0.1")))

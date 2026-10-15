@@ -16,6 +16,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 from roblox_presence.config import ConfigError, load
+from roblox_presence import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("presence_installer", ROOT / "deploy/install.py")
@@ -184,7 +185,7 @@ class DeploymentTests(unittest.TestCase):
     def test_packaging_excludes_private_runtime_files(self):
         # Test the actual produced source archive rather than just its filter code.
         subprocess.run([sys.executable, "tools/package.py"], cwd=ROOT, capture_output=True, check=True)
-        archive = ROOT / "dist/roblox-presence-0.2.0.tar.gz"
+        archive = ROOT / f"dist/roblox-presence-{__version__}.tar.gz"
         first = hashlib.sha256(archive.read_bytes()).hexdigest()
         subprocess.run([sys.executable, "tools/package.py"], cwd=ROOT, capture_output=True, check=True)
         self.assertEqual(hashlib.sha256(archive.read_bytes()).hexdigest(), first)
@@ -216,7 +217,7 @@ class DeploymentTests(unittest.TestCase):
                 canary = b"PACKAGE_PRIVATE_CANARY_NOT_A_REAL_CREDENTIAL_" + Path(folder).name.encode()
                 (Path(folder) / "private-session").write_bytes(canary)
                 subprocess.run([sys.executable, "tools/package.py"], cwd=ROOT, capture_output=True, check=True)
-                with tarfile.open(ROOT / "dist/roblox-presence-0.2.0.tar.gz") as archive:
+                with tarfile.open(ROOT / f"dist/roblox-presence-{__version__}.tar.gz") as archive:
                     for member in archive:
                         self.assertNotIn(".local", Path(member.name).parts)
                         self.assertFalse(canary in archive.extractfile(member).read(),
@@ -248,7 +249,7 @@ class UpgradeTests(unittest.TestCase):
     def old_install(self):
         installer.install(ROOT, self.config, self.root, apply=True)
         app = self.root / "opt/roblox-presence"
-        (app / "releases/0.2.0").rename(app / "releases/0.1.0")
+        (app / ("releases/" + __version__)).rename(app / "releases/0.1.0")
         (app / "current").unlink()
         (app / "current").symlink_to("releases/0.1.0")
         path = self.root / "etc/roblox-presence/config.json"
@@ -273,7 +274,7 @@ class UpgradeTests(unittest.TestCase):
         path.unlink()
         with patch.object(upgrader, "systemctl") as ctl:
             upgrader.prepare(root=self.root)
-            self.assertFalse((app / "releases/0.2.0").exists())
+            self.assertFalse((app / ("releases/" + __version__)).exists())
             target = upgrader.prepare(root=self.root, apply=True)
             self.assertFalse((target / ".local").exists())
             self.assertTrue((target / "robox").stat().st_mode & 0o100)
@@ -295,7 +296,7 @@ class UpgradeTests(unittest.TestCase):
              contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(upgrader.apply_upgrade(root=self.root), 0)
         self.assertEqual(calls, [("is-active", "roblox-presence.service"), ("stop", "roblox-presence.service"), ("start", "roblox-presence.service")])
-        self.assertEqual(os.readlink(app / "current"), "releases/0.2.0")
+        self.assertEqual(os.readlink(app / "current"), "releases/" + __version__)
         self.assertEqual((self.root / "etc/roblox-presence/roblox_cookie").read_bytes(), cookie)
         backups = list((app / "backups").glob("*/state.sqlite3"))
         self.assertEqual(len(backups), 1)

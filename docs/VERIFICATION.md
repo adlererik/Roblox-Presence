@@ -28,6 +28,8 @@ sandboxed headless browser; that does not prove phone approval for every account
 
 The 0.2.0 report was also checked in a browser at desktop and phone widths, including date filtering/reset and a full-day timeline that fits the phone. These previews use synthetic activity, never a real account history.
 
+The browser-link tests make real loopback HTTP requests using synthetic reports. They verify token isolation, GET/HEAD, rejected paths/traversal/write methods, Host checks, no-store/referrer/frame headers, expiry, silent access logs, private-address validation, root privilege-drop order, safe file URLs and saved-address upgrade isolation.
+
 ## Live acceptance checks for each installation
 
 1. Confirm the authenticated observer ID and intended connection ID.
