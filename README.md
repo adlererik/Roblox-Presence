@@ -18,6 +18,10 @@ These sources were checked on **15 October 2026**. The linked terms PDF took eff
 
 You can open Roblox and join a connection normally. Logging out, invalidating sessions, account security checks, or credential rotation can interrupt the monitor. Test it from the intended server while you play before relying on it. If Roblox rejects the server's session, keep its security protections enabled and resolve the rejection through supported Roblox tools.
 
+## Do I need Roblox installed on the server?
+
+No. The monitor is a Python program that sends HTTPS requests to Roblox's [documented presence API](https://create.roblox.com/docs/cloud/reference/domains/presence). It never launches the Roblox game client. Roblox lists [Linux as unsupported for its game client](https://en.help.roblox.com/hc/en-us/articles/203312800-Computer-Hardware-Operating-System-Requirements). The monitor still needs a valid account session and working API access; security challenges or expired sessions can interrupt it.
+
 ## Before you start
 
 You need:
@@ -267,6 +271,7 @@ These commands affect this monitor only. They retain its credentials and state. 
 | `Local setup already exists` | Keep the existing private setup. Do not repeat `init` or delete the topic. |
 | `Cannot read a credential file` | Complete `set-cookie`; check the configured file paths and permissions. Do not print the secret to diagnose it. |
 | `roblox_authentication_failed` | The server cannot use the saved session. Refresh only your own session through the secure prompt; keep Roblox security protections enabled. |
+| `roblox_credential_unavailable` / `push_credential_unavailable` | This is a local credential-read error. Check protected file paths and service configuration. On newer systemd, use the ACL-aware loader supplied here; do not loosen credential permissions or disable account protections. |
 | `roblox_observer_mismatch` | The session belongs to another account. Sign in to the configured observer account and replace only its cookie. |
 | `visible_status` says `offline` while the connection is online | Confirm the correct ID and official visibility settings together. Do not activate continuous monitoring until a known online check works. |
 | The terminal accepts a test, but the phone stays silent | Check server/topic spelling, notification permission, High channel, Instant delivery/background settings, mute and Do Not Disturb. Repeat the locked/idle test. |
@@ -283,11 +288,11 @@ In the **server terminal**, return to the original setup directory (for the fres
 ```bash
 python3 -m roblox_presence --config .local/config.json set-cookie
 python3 -m roblox_presence --config .local/config.json check
-sudo install -m 600 -o root -g root .local/roblox_cookie /etc/roblox-presence/roblox_cookie
+sudo python3 deploy/refresh_cookie.py --config "$PWD/.local/config.json" --apply
 sudo systemctl restart roblox-presence.service
 ```
 
-Use step 5 to obtain your own fresh session. Continue to the copy/restart commands only after the check succeeds. Restarting this unit refreshes its systemd credential snapshot; merely updating the file does not. Recheck installed health. Keep the topic and database unchanged. If a cookie was exposed, first revoke that session using Roblox's account security controls.
+Use step 5 or the optional phone Quick Sign In helper to obtain your own fresh session. Continue to the refresh/restart commands only after the check succeeds. The refresh helper copies the latest protected session value, including any replacement issued during that check. It verifies that the source and installed setup refer to the same accounts. Restarting this unit refreshes its systemd credential snapshot; merely updating the file does not. Recheck installed health. Keep the topic and database unchanged. If a cookie was exposed, first revoke that session using Roblox's account security controls.
 
 ## Behavior and limits
 
