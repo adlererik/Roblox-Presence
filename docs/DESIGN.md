@@ -51,7 +51,7 @@ Monitoring outages produce an alert after the configured threshold at the next f
 
 The optional systemd deployment reserves these paths:
 
-- `/opt/roblox-presence/releases/0.3.1` and its `current` symlink: source code.
+- `/opt/roblox-presence/releases/0.3.2` and its `current` symlink: source code.
 - `/etc/roblox-presence`: root-only configuration and credential sources.
 - `/var/lib/roblox-presence`: systemd-managed persistent state.
 - `/etc/systemd/system/roblox-presence.service`: this service's unit.
@@ -73,9 +73,9 @@ The automated tests cover software failure rules. Gates 3 and 4 require real acc
 
 ## Activity history and reports
 
-Schema 2 adds a bounded presence sample table and notification metadata. Migration from schema 1 runs in an explicit atomic transaction and is additive: session IDs, pending acknowledgements, and provider backoff are preserved. Each successful poll records online/offline/pending; failed polls record unknown. Confirmed logout events refer to the first consecutive offline check and separately retain the confirmation time. Pending offline samples become offline only after confirmation; an interruption breaks that chain. Initial states are labeled “first seen,” not an inferred login/logout. Retention is fifteen elapsed days, pruned on the existing maintenance schedule.
+Schema 2 adds a bounded presence sample table and notification metadata. Migration from schema 1 runs in an explicit atomic transaction and is additive: session IDs, pending acknowledgements, and provider backoff are preserved. Each successful poll records online/offline/pending; failed polls record unknown. Confirmed logout events refer to the first consecutive offline check and separately retain the confirmation time. Pending offline samples become offline only after confirmation; an interruption breaks that chain. Initial states are labeled “first seen,” not an inferred login/logout. Retention is thirty-one elapsed days, pruned on the existing maintenance schedule.
 
-The report reads a consistent, read-only SQLite snapshot for fourteen server-local dates. It does not load any credentials, poll Roblox, change state, or make HTTP requests. It draws no continuous known span across failed/pending samples or a gap exceeding the freshness threshold. It does not extrapolate after the last recorded check. Session activity during gaps remains unknown even if stable alert state persists across a restart.
+The report reads a consistent, read-only SQLite snapshot for thirty server-local dates. It does not load any credentials, poll Roblox, change state, or make HTTP requests. It draws no continuous known span across failed/pending samples or a gap exceeding the freshness threshold. It does not extrapolate after the last recorded check. Session activity during gaps remains unknown even if stable alert state persists across a restart.
 
 Clock times are rendered on the host with its timezone database, using historical offsets, seconds, timezone abbreviations, and UTC offsets. A 23- or 25-hour local date has its own axis; repeated clock hours show different offsets in the event table. The browser receives preformatted times and never converts them to its own zone. Correct system time and timezone configuration are the administrator’s responsibility; the application does not change them or infer physical location.
 

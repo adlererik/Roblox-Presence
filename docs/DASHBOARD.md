@@ -10,7 +10,7 @@ needs to remain running on a laptop or in an SSH terminal.
 2. Open the private URL printed during setup. Keep the entire address secret.
 3. Save it as a browser bookmark. You may also add it to your home screen.
 4. Tap **Generate new graph**. The page refreshes while the server prepares it.
-5. Read the fourteen daily timelines. Tap a date to filter the recorded times
+5. Read the thirty daily timelines. Tap a date to filter the recorded times
    underneath. They include dates, hours, minutes, seconds and the server timezone.
 6. Close the browser whenever you like. Return to the same bookmark next time.
 
@@ -91,7 +91,7 @@ The existing bind-deny rule remains; the drop-in permits only the selected TCP
 port/address family. The Python code accepts only a specific private/loopback IP.
 The service remains an unprivileged DynamicUser with no capabilities, a five-percent
 CPU quota and idle I/O scheduling. Dashboard opt-in sets its own memory limit to
-256 MiB for a large fourteen-day report. One generation can run at a time, with
+256 MiB for a large thirty-day report. One generation can run at a time, with
 ten seconds between requests and a lower-priority, separate graph process capped at 128 MiB of address space, eight seconds of CPU (ten-second hard limit) and sixty seconds elapsed time.
 
 No web/proxy/firewall/router configuration, other service unit, system package or

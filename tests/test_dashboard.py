@@ -73,7 +73,7 @@ class DashboardTests(Fixture):
         self.assertIsNone(self.server.error)
         status, headers, body = self.http()
         self.assertEqual(status, 200)
-        self.assertIn(b'The past 14 days', body)
+        self.assertIn(b'The past 30 days', body)
         self.assertIn(b"form-action 'self'", body)
         self.assertIn(b'Bookmark this page', body)
         self.assertEqual(headers['Cache-Control'], 'no-store')
@@ -129,7 +129,7 @@ class DashboardTests(Fixture):
         self.assertEqual(json.loads(result), {'generating':True})
         self.assertNotIn('Location', headers)
         self.server.job.join(5)
-        self.assertIn(b'The past 14 days', self.http('report')[2])
+        self.assertIn(b'The past 30 days', self.http('report')[2])
 
     def test_paths_methods_host_and_health_never_disclose_credentials_or_account_ids(self):
         for route in ('../config.json', 'cookie', '?query=1', 'report?x=1'):

@@ -16,6 +16,7 @@ from .monitor import run
 from .push import Push
 from .roblox import Roblox, resolve_username
 from .state import read_health
+from .history import REPORT_DAYS
 from . import __version__
 
 
@@ -28,7 +29,7 @@ def write_secret(path, value):
 def main(argv=None):
     os.umask(0o077)
     parser = argparse.ArgumentParser(prog=Path(sys.argv[0]).name if Path(sys.argv[0]).name in ("roblox", "robox") else "python3 -m roblox_presence",
-                                     description="Roblox Presence Monitor — phone alerts and a private 14-day graph",
+                                     description=f"Roblox Presence Monitor — phone alerts and a private {REPORT_DAYS}-day graph",
                                      epilog="Use COMMAND --help for its options. Dashboard example: robox graph (no sudo). robox and roblox are equivalent.")
     default_config = "/etc/roblox-presence/config.json" if Path(__file__).resolve().is_relative_to(Path("/opt/roblox-presence")) else ".local/config.json"
     parser.add_argument("--config", default=None, help="Private monitor configuration; default: " + default_config)
@@ -39,7 +40,7 @@ def main(argv=None):
                     "check": "Check Roblox once and verify the observing account", "status": "Show the running monitor's health",
                     "run": "Run continuously in this terminal (usually handled by the service)",
                     "subscription": "Show your private ntfy subscription address; keep it secret",
-                    "test-push": "Send a test notification to your phone", "graph": "Generate a 14-day graph and print its browser link (dashboard: no sudo)",
+                    "test-push": "Send a test notification to your phone", "graph": f"Generate a {REPORT_DAYS}-day graph and print its browser link (dashboard: no sudo)",
                     "dashboard": "Show your bookmarked private graph page (no sudo)"}
     for name, description in descriptions.items():
         command = commands.add_parser(name, help=description, description=description)

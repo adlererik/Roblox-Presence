@@ -9,7 +9,7 @@ stop the server recording new activity.
 Version **0.3.0** adds a persistent private dashboard. Follow the
 [one-time dashboard setup](DASHBOARD.md), then bookmark the secret URL it prints.
 Open that bookmark on your phone or computer and tap **Generate new graph**.
-The page refreshes while generating and displays the new fourteen-day graph.
+The page refreshes while generating and displays the new thirty-day graph.
 No SSH, terminal, sudo, app installation or running workstation is needed for
 this everyday action. Your server and monitor must still be running and reachable
 on your trusted private network or existing VPN/SSH connection.
@@ -121,7 +121,7 @@ administrator access.
 - **White:** time later today that has not happened yet.
 
 Each row is a day; the newest day is at the top. The right-hand number is observed
-online time for that day. The cards show observed online time, online appearances, and how much of the fourteen-day window has reliable checks. Missing
+online time for that day. The cards show observed online time, online appearances, and how much of the thirty-day window has reliable checks. Missing
 history lowers coverage rather than pretending those days were offline. The full day remains visible on a narrow phone; the exact clock times are listed below.
 
 Tap a date to filter the list of detected login/logout times below. Tap **Show all
@@ -145,11 +145,15 @@ Ask the administrator to confirm its timezone if the displayed clock is wrong;
 the program does not change server time. Clock-change days have a `*` and their
 own axis. The event list distinguishes repeated hours with UTC offsets.
 
-The report covers the last fourteen local calendar dates, including today. The
-server keeps fifteen elapsed days of checks so the report still works around
+The report covers the last thirty local calendar dates, including today. The
+server keeps thirty-one elapsed days of checks so the report still works around
 midnight and daylight saving changes. Old checks are pruned automatically while
 the monitor runs. Downloaded reports and upgrade backups remain until you delete
 them; database retention does not remove your copies.
+
+Version 0.3.2 increases the window from fourteen to thirty dates. Checks already
+pruned by the old fifteen-day retention policy cannot be recovered; those dates
+stay unknown while the new month of history accumulates.
 
 ## Every program command
 
@@ -234,7 +238,7 @@ On the server, obtain the new release in a **new source directory**, then run it
 tests. For example, start in a new empty folder and use:
 
 ```bash
-git clone --branch v0.3.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.3.2 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 -m unittest discover -v
 sudo python3 deploy/upgrade.py
@@ -264,7 +268,7 @@ robox dashboard
 robox status
 ```
 
-Version 0.2.0 introduced recording; 0.3.0 preserves that history. For a first
+Version 0.2.0 introduced recording; 0.3.2 preserves that history. For a first
 upgrade from 0.1.0, history starts afterwards and fills gradually; there is no
 earlier log to import from 0.1.0. Keep real online visibility
 and phone-delivery checks in your acceptance process. A passing offline check is

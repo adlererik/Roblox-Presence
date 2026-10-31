@@ -1,4 +1,4 @@
-"""Private, self-contained fourteen-day presence report. No network or credentials."""
+"""Private, self-contained thirty-day presence report. No network or credentials."""
 
 import hashlib
 import html
@@ -13,6 +13,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .config import ConfigError
+from .history import REPORT_DAYS
 from .roblox import clean_text
 from .state import preserve_sqlite_owner
 
@@ -45,7 +46,7 @@ def duration(seconds):
 
 
 def snapshot(config, now, zone):
-    start_date = datetime.fromtimestamp(now, zone).date() - timedelta(days=13)
+    start_date = datetime.fromtimestamp(now, zone).date() - timedelta(days=REPORT_DAYS - 1)
     start = datetime.combine(start_date, time(), zone).timestamp()
     path = config.state_dir / "state.sqlite3"
     if not path.is_file() or path.is_symlink():
@@ -99,10 +100,10 @@ STYLE = """
 SCRIPT = """
 const days=[...document.querySelectorAll('.daylabel')];
 const rows=[...document.querySelectorAll('tbody tr[data-day]')];
-function select(day){days.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.day===day)));rows.forEach(r=>r.hidden=Boolean(day&&r.dataset.day!==day));document.getElementById('filter').textContent=day?'Showing '+day:'All 14 days';document.getElementById('noevents').hidden=!day||rows.some(r=>!r.hidden);}
+function select(day){days.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.day===day)));rows.forEach(r=>r.hidden=Boolean(day&&r.dataset.day!==day));document.getElementById('filter').textContent=day?'Showing '+day:'All REPORT_DAYS days';document.getElementById('noevents').hidden=!day||rows.some(r=>!r.hidden);}
 days.forEach(b=>b.addEventListener('click',()=>select(b.getAttribute('aria-pressed')==='true'?'':b.dataset.day)));
 document.getElementById('reset').addEventListener('click',()=>select(''));
-"""
+""".replace("REPORT_DAYS", str(REPORT_DAYS))
 
 
 def render(data, now, zone, zone_name, poll_seconds=15):
@@ -112,7 +113,7 @@ def render(data, now, zone, zone_name, poll_seconds=15):
     details = data.get("details") or {}
     display, username = clean_text(details.get("display_name"), 80), clean_text(details.get("username"), 40)
     name = f"{display} (@{username})" if display and username else display or ("@" + username if username else "Monitored connection")
-    first_date = datetime.fromtimestamp(now, zone).date() - timedelta(days=13)
+    first_date = datetime.fromtimestamp(now, zone).date() - timedelta(days=REPORT_DAYS - 1)
     online_seconds = sum(b - a for a, b, k in spans if k == "online")
     known_seconds = sum(b - a for a, b, k in spans)
     window = now - datetime.combine(first_date, time(), zone).timestamp()
@@ -122,7 +123,7 @@ def render(data, now, zone, zone_name, poll_seconds=15):
     current = recent["kind"] if recent and 0 <= now - recent["observed_at"] <= max(60, poll_seconds * 3) else "unknown"
     badge = {"online": "● Online at last check", "offline": "○ Offline at last check"}.get(current, "? Status unavailable")
     days = []
-    for offset in range(13, -1, -1):
+    for offset in range(REPORT_DAYS - 1, -1, -1):
         date = first_date + timedelta(days=offset)
         begin = datetime.combine(date, time(), zone).timestamp()
         end = datetime.combine(date + timedelta(days=1), time(), zone).timestamp()
@@ -143,7 +144,7 @@ def render(data, now, zone, zone_name, poll_seconds=15):
         for hour in (0, 6, 12, 18, 24):
             tick = end if hour == 24 else datetime.combine(date, time(hour), zone).timestamp()
             ticks.append(f'<span style="left:{100*(tick-begin)/length:.5f}%">{hour:02d}:00</span>')
-        label = ("Today · " if offset == 13 else "") + date.strftime("%a %d %b")
+        label = ("Today · " if offset == REPORT_DAYS - 1 else "") + date.strftime("%a %d %b")
         dst = " · clock change" if length != 86400 else ""
         days.append(f'<div class="axis"><span></span><div class="hours">{"".join(ticks)}</div><span></span></div>' if length != 86400 else "")
         days.append(f'<div class="day"><button class="daylabel" data-day="{date.isoformat()}" aria-pressed="false" title="Show events for this day{dst}">{esc(label)}{(" *" if dst else "")}</button><div class="track" aria-label="{esc(label+dst)}">{"".join(parts)}</div><span class="total">{duration(total)}</span></div>')
@@ -162,11 +163,11 @@ def render(data, now, zone, zone_name, poll_seconds=15):
     empty = '<p class="empty">No recorded activity yet. Keep the updated monitor running; earlier activity cannot be recovered.</p>' if not rows else ""
     first = stamp(rows[0]["observed_at"], zone) if rows else "Not recorded yet"
     script_hash = __import__('base64').b64encode(hashlib.sha256(SCRIPT.encode()).digest()).decode()
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-{script_hash}'; base-uri 'none'; form-action 'none'; connect-src 'none'"><title>Roblox Presence · 14 days</title><style>{STYLE}</style></head><body><main>
-<header><div><div class="eyebrow">Roblox Presence / Activity overview</div><h1>The past 14 days</h1><p>{esc(name)}</p><p>{esc(first_date.strftime('%d %b'))} – {esc(datetime.fromtimestamp(now, zone).strftime('%d %b %Y'))} · Server time: <strong>{esc(zone_name)}</strong></p></div><span class="pill {esc(current)}">{badge}</span></header>
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-{script_hash}'; base-uri 'none'; form-action 'none'; connect-src 'none'"><title>Roblox Presence · {REPORT_DAYS} days</title><style>{STYLE}</style></head><body><main>
+<header><div><div class="eyebrow">Roblox Presence / Activity overview</div><h1>The past {REPORT_DAYS} days</h1><p>{esc(name)}</p><p>{esc(first_date.strftime('%d %b'))} – {esc(datetime.fromtimestamp(now, zone).strftime('%d %b %Y'))} · Server time: <strong>{esc(zone_name)}</strong></p></div><span class="pill {esc(current)}">{badge}</span></header>
 <section class="cards" aria-label="Activity summary"><div class="card"><span class="value">{duration(online_seconds)}</span><span class="label">Observed online time</span></div><div class="card"><span class="value">{seen_online}</span><span class="label">Online appearances</span></div><div class="card"><span class="value">{round(100*known_seconds/window) if window else 0}%</span><span class="label">Window with recorded checks</span></div></section>
 <section class="panel"><div class="panelhead"><div><h2>When were they online?</h2><p class="label">One row per day · Select a date to filter the times below</p></div><div class="legend"><span><i class="key online"></i>Online</span><span><i class="key"></i>Offline</span><span><i class="key unknown"></i>No reliable checks</span></div></div>{empty}<div class="scroll"><div class="timeline"><div class="axis"><span>Date</span><div class="hours"><span style="left:0">00:00</span><span style="left:25%">06:00</span><span style="left:50%">12:00</span><span style="left:75%">18:00</span><span style="left:100%">24:00</span></div><span style="text-align:right">Online time</span></div>{''.join(days)}</div></div><p class="note">Green includes online, in a game and Studio. Stripes mean missing checks, an unconfirmed offline result, or time before recording began. White is later today. Bars end at the last reliable check. * Clock-change days have their own time axis.</p></section>
-<section class="panel"><div class="panelhead"><div><h2>Detected login &amp; logout times</h2><p class="label" id="filter" aria-live="polite">All 14 days</p></div><button class="reset" id="reset">Show all days</button></div><div class="tablewrap"><table><thead><tr><th>What happened</th><th>Server clock</th><th>How to read it</th></tr></thead><tbody>{''.join(table)}</tbody></table></div><p id="noevents" class="empty" hidden>No state changes recorded on this date.</p>{('<p class="empty">No state changes recorded in this window.</p>' if not events else '')}<p class="note">These are observation times, not Roblox login/logout records. Checks normally run every {poll_seconds} seconds; Roblox reporting delays and outages can increase uncertainty. Offline changes require consecutive successful checks. Activity during gaps is unknown, and a session across a gap may contain unobserved logins or logouts. All times use the server timezone, even when this file is opened on a phone elsewhere.</p></section>
+<section class="panel"><div class="panelhead"><div><h2>Detected login &amp; logout times</h2><p class="label" id="filter" aria-live="polite">All {REPORT_DAYS} days</p></div><button class="reset" id="reset">Show all days</button></div><div class="tablewrap"><table><thead><tr><th>What happened</th><th>Server clock</th><th>How to read it</th></tr></thead><tbody>{''.join(table)}</tbody></table></div><p id="noevents" class="empty" hidden>No state changes recorded on this date.</p>{('<p class="empty">No state changes recorded in this window.</p>' if not events else '')}<p class="note">These are observation times, not Roblox login/logout records. Checks normally run every {poll_seconds} seconds; Roblox reporting delays and outages can increase uncertainty. Offline changes require consecutive successful checks. Activity during gaps is unknown, and a session across a gap may contain unobserved logins or logouts. All times use the server timezone, even when this file is opened on a phone elsewhere.</p></section>
 <div class="footer"><span>Private report · Keep this file out of public repositories</span><span>Generated {esc(stamp(now, zone))}<br>First check in this window: {esc(first)}</span></div></main><script>{SCRIPT}</script></body></html>'''
 
 

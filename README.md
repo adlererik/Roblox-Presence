@@ -4,7 +4,7 @@ Receive a phone notification when a Roblox connection comes online, then open Ro
 
 This is an independent project, without Roblox endorsement or approval. It needs your own Roblox account's session credential. It does not need the other person's password or session.
 
-**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.3.1](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.3.1) is a preview; complete the real online-status and phone-delivery checks before relying on it.
+**Start here:** [plain-language installation guide](docs/GETTING_STARTED.md). It explains which steps happen on your server and which happen on your phone, with commands and expected results. [Download v0.3.2](https://github.com/adlererik/Roblox-Presence/releases/tag/v0.3.2) is a preview; complete the real online-status and phone-delivery checks before relying on it.
 
 The settings are your own: choose the two accounts, your Linux server, and your notification client. No particular relationship, hardware brand, hostname, or Linux distribution is required. The automated service installer uses systemd; [OpenRC and other supervisors](docs/DEPLOYMENT.md) have separate instructions.
 
@@ -32,7 +32,7 @@ mobile using the page alone. `robox graph --file-only` downloads a fresh private
 HTML copy into your home folder; `--output` chooses a different private filename.
 `roblox` is an equivalent command spelling.
 
-The interactive **14-day graph** has a timeline for each date: green is observed
+The interactive **30-day graph** has a timeline for each date: green is observed
 online, gray is offline, and stripes mean unavailable checks. Tap a date to see
 its **recorded online/offline times with hours, minutes and seconds** below.
 Confirmed offline changes show the first offline check and its later confirmation.
@@ -43,7 +43,10 @@ even when viewed on a phone somewhere else.
 supplies current presence and checks normally run every 15 seconds. Reporting
 and network delays add uncertainty; activity before recording or during a gap
 cannot be reconstructed. Recording began in 0.2.0; updates preserve that history.
-The graph covers fourteen local calendar dates, with fifteen elapsed days retained.
+The graph covers thirty local calendar dates, including today, with thirty-one elapsed days retained.
+After upgrading from the fourteen-day chart, older checks already deleted by the
+previous retention policy cannot be recovered. Missing days remain visibly unknown
+as the longer window fills with new checks.
 
 The static URL is a secret giving access to viewing and generation. Anyone who has
 it and can reach the server can use it until the administrator replaces the key.
@@ -68,10 +71,10 @@ never guessed. Keep notification topics and exported reports private too.
 They preserve history, credentials, notifications and retry state, and restart
 only this monitor.
 
-Version **0.3.1** fixes setup with an existing group-writable `.config` folder and
-recovers matching dashboard files left by a stopped 0.3.0 setup. The shared folder
-and other applications' settings keep their permissions; only this application's
-settings are private. See [setup recovery](docs/DASHBOARD.md#if-030-stopped-while-saving-operator-settings).
+Version **0.3.2** extends the chart to thirty days while preserving the dashboard
+URL, recorded clock times and saved history. It includes the **0.3.1** setup fix
+for an existing group-writable `.config` folder and recovers matching dashboard
+files left by a stopped 0.3.0 setup. See [setup recovery](docs/DASHBOARD.md#if-030-stopped-while-saving-operator-settings).
 
 ## Can this get my Roblox account banned?
 
@@ -160,7 +163,7 @@ Use a new directory dedicated to this project. For a fresh setup:
 ```bash
 mkdir -p "$HOME/projects"
 cd "$HOME/projects"
-git clone --branch v0.3.1 --depth 1 https://github.com/adlererik/Roblox-Presence.git
+git clone --branch v0.3.2 --depth 1 https://github.com/adlererik/Roblox-Presence.git
 cd Roblox-Presence
 python3 --version
 python3 deploy/preflight.py
@@ -369,6 +372,6 @@ Use step 5 or the optional phone Quick Sign In helper to obtain your own fresh s
 - Online, in-game, and in-studio count as online. One alert is sent per observed online session. Two consecutive valid offline results rearm it. If the initial alert had no game, the first visible game can send one follow-up; later game switches do not trigger more alerts.
 - Failed checks, expired sessions, missing results, and unknown status types are never treated as offline. Source failures lasting five minutes generate an outage alert when delivery is possible, followed by a recovery alert.
 - SQLite preserves transitions and pending notifications across restarts. Delivery retries run separately, honor backoff, pause when observations are stale/failing, and expire undelivered online alerts after five minutes. A crash after provider acceptance but before saving the acknowledgement can cause a duplicate.
-- Protected local state contains account IDs, fifteen days of presence checks and detected changes, the latest player name/activity, a bounded notification outbox, and a protected replacement session credential when Roblox rotates it. Completed notification records are pruned after seven days and can contain player/game names. It does not keep a game-location history, messages, or a connections list. Hosted push services receive player/game names and observation times, never session cookies or numeric account/place/server IDs. Exported graphs contain presence times and the player name, never credentials or the ntfy topic; keep them private.
+- Protected local state contains account IDs, thirty-one days of presence checks and detected changes, the latest player name/activity, a bounded notification outbox, and a protected replacement session credential when Roblox rotates it. Completed notification records are pruned after seven days and can contain player/game names. It does not keep a game-location history, messages, or a connections list. Hosted push services receive player/game names and observation times, never session cookies or numeric account/place/server IDs. Exported graphs contain presence times and the player name, never credentials or the ntfy topic; keep them private.
 
 See [deployment options](docs/DEPLOYMENT.md), [design](docs/DESIGN.md), [verification](docs/VERIFICATION.md), and [primary sources](docs/SOURCES.md). Keep personal account names, device/host details, inventory, credentials, and logs in ignored private files rather than published examples. Systemd deployment has been tested on Linux; the OpenRC example has syntax checks but has not been tested on a live OpenRC host.

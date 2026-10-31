@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .config import ConfigError
+from .history import HISTORY_RETENTION_DAYS
 from .roblox import clean_text
 
 
@@ -218,8 +219,8 @@ class State:
                 self.db.execute("UPDATE outbox SET status='expired',completed_at=? "
                                 "WHERE status='pending' AND expires_at<=?", (now, now))
                 self.db.execute("DELETE FROM outbox WHERE completed_at<?", (now - 7 * 86400,))
-                # Fifteen days cover fourteen local calendar dates across DST changes.
-                self.db.execute("DELETE FROM history WHERE observed_at<?", (now - 15 * 86400,))
+                self.db.execute("DELETE FROM history WHERE observed_at<?",
+                                (now - HISTORY_RETENTION_DAYS * 86400,))
                 self.maintenance_at = now
             if now < row["push_retry_at"]:
                 return None

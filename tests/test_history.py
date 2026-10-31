@@ -59,11 +59,55 @@ class HistoryTests(Fixture):
         state.observe(True, 1000, details=DETAILS)
         event = state.next_event(1000)
         state.retry(event, "ntfy_rate_limited", 1000, 600)
-        state.observe(True, 1000 + 16 * 86400)
-        state.next_event(1000 + 16 * 86400)
+        state.observe(True, 1000 + 32 * 86400)
+        state.next_event(1000 + 32 * 86400)
         self.assertEqual(state.db.execute("SELECT COUNT(*) FROM history").fetchone()[0], 1)
         self.assertEqual(state.status()["stable_online"], 1)
         self.assertEqual(state.status()["push_retry_at"], 1600)
+
+    def test_retention_keeps_a_full_month_and_prunes_only_before_31_days(self):
+        state = self.db()
+        now = 40 * 86400
+        boundary = now - 31 * 86400
+        times = (boundary - 1, boundary, now - 30 * 86400, now - 20 * 86400, now)
+        with state.db:
+            state.db.executemany("INSERT INTO history(scope,observed_at,kind) VALUES(?,?,?)",
+                                 ((self.config.scope, at, "offline") for at in times))
+        state.next_event(now)
+        kept = [r[0] for r in state.db.execute("SELECT observed_at FROM history ORDER BY observed_at")]
+        self.assertEqual(kept, list(times[1:]))
+
+    def test_30_calendar_dates_start_at_local_midnight_across_clock_changes(self):
+        state = self.db()
+        zone = ZoneInfo("Europe/Paris")
+        for end, first in (("2026-10-31T12:00:00+01:00", "2026-10-02T00:00:00+02:00"),
+                           ("2026-03-31T12:00:00+02:00", "2026-03-02T00:00:00+01:00")):
+            with self.subTest(end=end):
+                now = datetime.fromisoformat(end).timestamp()
+                start = datetime.fromisoformat(first).timestamp()
+                login, logout = start + 8 * 3600 + 123, start + 9 * 3600 + 234
+                state.db.execute("DELETE FROM history")
+                state.observe(False, start - 16)
+                state.observe(False, start - 1)
+                state.observe(False, start)
+                state.observe(True, login)
+                state.observe(False, logout)
+                state.observe(False, logout + 15)
+                state.observe(True, now)
+                state.observe(True, now + 1)
+                data = snapshot(self.config, now, zone)
+                self.assertEqual(data["start"], start)
+                self.assertEqual([r["observed_at"] for r in data["rows"]],
+                                 [start, login, logout, logout + 15, now])
+                self.assertEqual(data["rows"][1]["event"], "online")
+                text = render(data, now, zone, "Europe/Paris")
+                self.assertEqual(text.count('class="daylabel"'), 30)
+                self.assertIn('data-day="' + first[:10] + '"', text)
+                self.assertNotIn('data-day="' + datetime.fromtimestamp(start - 1, zone).date().isoformat() + '"', text)
+                self.assertIn("08:02:03", text)
+                self.assertIn("09:03:54", text)
+                self.assertIn("09:04:09", text)
+                self.assertIn("All 30 days", text)
 
     def make_v1(self):
         self.config.state_dir.mkdir()
@@ -124,7 +168,7 @@ class HistoryTests(Fixture):
         data = snapshot(self.config, 2000, ZoneInfo("UTC"))
         text = render(data, 2000, ZoneInfo("UTC"), "UTC")
         self.assertIn("No recorded activity yet", text)
-        self.assertEqual(text.count('class="daylabel"'), 14)
+        self.assertEqual(text.count('class="daylabel"'), 30)
         self.assertIn("0%", text)
 
     def test_graph_command_end_to_end_without_credentials_or_state_changes(self):
@@ -265,7 +309,7 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn('href="http', result)
         self.assertIn("connect-src 'none'", result)
         self.assertIn("script-src 'sha256-", result)
-        self.assertEqual(result.count('class="daylabel"'), 14)
+        self.assertEqual(result.count('class="daylabel"'), 30)
 
     def test_dst_fall_and_spring_have_correct_local_times_and_day_axes(self):
         for day, first, second in (("2026-10-25T12:00:00+00:00", "2026-10-25T00:30:00+00:00", "2026-10-25T01:30:00+00:00"),
@@ -310,4 +354,4 @@ class ReportTests(unittest.TestCase):
                 self.assertIn(command, result.stdout)
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(main(["help"]), 0)
-        self.assertIn("14-day graph", output.getvalue())
+        self.assertIn("30-day graph", output.getvalue())
